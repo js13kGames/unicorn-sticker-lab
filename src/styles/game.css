@@ -361,7 +361,7 @@ body {
    thumbnails (see .thumb) plus each row's name/hint text wants more
    breathing room than the album grid's own square cards do */
 #collectionPanel {
-  width: 340px;
+  width: 380px;
 }
 
 #collectionPanel h1,
@@ -388,7 +388,7 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 4px 0;
+  padding: 8px 0;
   font-size: 13px;
   border-bottom: 1px solid #eee;
 }
@@ -414,19 +414,31 @@ body {
 .discovery-main {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 /* same purple as the real canvas (CANVAS_BG), not the panel's own white -
    the snapshot's shared outline is white, same as on the real canvas, and
-   was invisible against a white background behind it */
+   was invisible against a white background behind it. Sized generously
+   (THUMB_SIZE in index.ts) - the actual sticker is a key visual element
+   here, not a small supporting icon, so the name is left free to wrap
+   onto a second line rather than the image staying small to protect a
+   single-line row. #collectionPanel already scrolls (overflow-y: auto)
+   for whatever extra height that costs. */
 .thumb {
   display: block;
-  width: 40px;
-  height: 40px;
+  width: 88px;
+  height: 88px;
   flex-shrink: 0;
   background: $canvasBg;
-  border-radius: 6px;
+  border-radius: 10px;
+}
+
+/* the name text, next to a much bigger .thumb now - a touch larger than
+   the row's own base 13px so it doesn't read as an afterthought next to
+   the image, and free to wrap (no white-space/overflow constraints) */
+.discovery-main span {
+  font-size: 15px;
 }
 
 #albumGrid {

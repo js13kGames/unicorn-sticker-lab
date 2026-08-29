@@ -187,7 +187,28 @@ function showToast(text: string): void {
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
 }
 
-const THUMB_SIZE = 40
+// a key visual element (the doc's own framing after "still too small,
+// tiny and blurry") gets a generous display size - text is free to wrap
+// under/beside it and the panel already scrolls, so there's no reason to
+// keep it icon-sized just to protect a single-line row
+const THUMB_SIZE = 88
+
+// Renders into a canvas buffer sized for the display's actual pixel
+// density (devicePixelRatio), not just `displaySize` 1:1 - a canvas whose
+// buffer resolution matches its CSS display size looks soft/blurry on any
+// HiDPI screen, since the browser has to upscale it. CSS (.thumb /
+// .album-item canvas) still controls the on-screen size; only the
+// backing buffer (and what renderSnapshot draws into) is higher-res.
+function renderThumb(pieces: Placed[], displaySize: number): HTMLCanvasElement {
+  const bufferSize = Math.round(displaySize * (window.devicePixelRatio || 1))
+  const thumbCanvas = document.createElement('canvas')
+
+  thumbCanvas.width = bufferSize
+  thumbCanvas.height = bufferSize
+  renderSnapshot(thumbCanvas.getContext('2d') as CanvasRenderingContext2D, pieces, bufferSize)
+
+  return thumbCanvas
+}
 
 // GDD SS16: "each discovered entry stores the *actual instance* that
 // triggered it... as its representative image, not stock art" (Placement
@@ -205,12 +226,9 @@ function discoveredLabel(recipeId: string, name: string): HTMLSpanElement {
   // shouldn't happen once discovered, but an old save predating this
   // feature could have a discoveredIds entry with no matching shot
   if (pieces) {
-    const thumb = document.createElement('canvas')
+    const thumb = renderThumb(pieces, THUMB_SIZE)
 
-    thumb.width = THUMB_SIZE
-    thumb.height = THUMB_SIZE
     thumb.className = 'thumb'
-    renderSnapshot(thumb.getContext('2d') as CanvasRenderingContext2D, pieces, THUMB_SIZE)
     wrap.appendChild(thumb)
   }
 
@@ -277,13 +295,10 @@ function renderAlbumGrid(): void {
 
   newestFirst.forEach((snap) => {
     const item = document.createElement('div')
-    const thumb = document.createElement('canvas')
+    const thumb = renderThumb(snap.pieces, ALBUM_THUMB_SIZE)
     const label = document.createElement('span')
 
     item.className = 'album-item'
-    thumb.width = ALBUM_THUMB_SIZE
-    thumb.height = ALBUM_THUMB_SIZE
-    renderSnapshot(thumb.getContext('2d') as CanvasRenderingContext2D, snap.pieces, ALBUM_THUMB_SIZE)
 
     const recipe = snap.recipeId === null ? null : RECIPES.find(r => r.id === snap.recipeId)
 

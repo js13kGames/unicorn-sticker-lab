@@ -45,7 +45,9 @@ function dot(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): 
   ctx.fill()
 }
 
-const drawUnicorn: Draw = (ctx, color) => {
+// Everything except the eye, shared between the placeable sticker (small dot
+// eye) and the mascot (big trackable eye) below.
+function drawUnicornBody(ctx: CanvasRenderingContext2D, color: string): void {
   // tail
   blob(ctx, '#ffffff', () => {
     circlePath(ctx, 26, 6, 8)
@@ -89,7 +91,37 @@ const drawUnicorn: Draw = (ctx, color) => {
     ctx.lineTo(-15, -27)
     ctx.closePath()
   })
+}
+
+const drawUnicorn: Draw = (ctx, color) => {
+  drawUnicornBody(ctx, color)
   dot(ctx, -22, -14, 2)
+}
+
+const EYE_CX = -21
+const EYE_CY = -15
+const EYE_SCLERA_R = 6
+const EYE_PUPIL_R = 2.6
+
+// Only used for the studio mascot, not the placeable sticker - a bigger eye
+// with a pupil that can shift within it (see components.ts's blob/dot reuse
+// so it still gets the same outline treatment as the rest of the body).
+// `eyeX`/`eyeY` point toward whatever the mascot should be looking at; the
+// pupil is clamped so it never leaves the sclera.
+export function drawMascotUnicorn(
+  ctx: CanvasRenderingContext2D,
+  color: string,
+  eyeX: number,
+  eyeY: number,
+): void {
+  drawUnicornBody(ctx, color)
+
+  const maxOffset = EYE_SCLERA_R - EYE_PUPIL_R - 0.5
+  const mag = Math.sqrt(eyeX * eyeX + eyeY * eyeY)
+  const scale = mag > maxOffset ? maxOffset / mag : 1
+
+  blob(ctx, '#ffffff', () => circlePath(ctx, EYE_CX, EYE_CY, EYE_SCLERA_R))
+  dot(ctx, EYE_CX + eyeX * scale, EYE_CY + eyeY * scale, EYE_PUPIL_R)
 }
 
 const RAINBOW_BANDS = ['#ff4d4d', '#ff9f43', '#ffd93d', '#6bcb77', '#4dd0e1', '#a26bff']

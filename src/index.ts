@@ -341,13 +341,26 @@ window.addEventListener('keydown', (e) => {
 
 render()
 
+// tracked globally (not just over the mascot canvas) so the eyes keep
+// following the cursor anywhere on the page, not only while over the mascot
+let pointerScreenX = 0
+let pointerScreenY = 0
+
+window.addEventListener('pointermove', (e) => {
+  pointerScreenX = e.clientX
+  pointerScreenY = e.clientY
+})
+
 // the mascot idles continuously even when nothing else changes, so it gets
 // its own animation loop instead of only redrawing on state changes
 function mascotLoop(now: number): void {
   const sel = selected()
   const lean = sel ? Math.max(-1, Math.min(1, (sel.x - CANVAS_WIDTH / 2) / (CANVAS_WIDTH / 2))) : 0
+  const mascotRect = mascotCanvas.getBoundingClientRect()
+  const lookX = pointerScreenX - (mascotRect.left + mascotRect.width / 2)
+  const lookY = pointerScreenY - (mascotRect.top + mascotRect.height / 2)
 
-  renderMascot(mascotCtx, MASCOT_SIZE, MASCOT_SIZE, now, lean)
+  renderMascot(mascotCtx, MASCOT_SIZE, MASCOT_SIZE, now, lean, lookX, lookY)
   requestAnimationFrame(mascotLoop)
 }
 

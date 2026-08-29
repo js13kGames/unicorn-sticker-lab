@@ -30,8 +30,17 @@ const MELODY = [
 // two can't ever drift out of the same key
 const PENTATONIC = [...new Set(MELODY.filter(f => f))]
 
+// arrangement, not harmony - a longer cycle laid on top of the 4-bar chord
+// progression above. The trailing BREAK_BARS of every BREAK_EVERY-bar
+// stretch drop the bass and thin the melody out (a "chill" breakdown),
+// then the next cycle's first bar brings both back at once - the bass
+// re-entering *is* the "rebuild" cue, cheaper than a gradual fade back in
+const BREAK_EVERY = 8
+const BREAK_BARS = 2
+
 let musicOn = false
 let timer: number | undefined
+let barCount = 0
 
 // per-note volume wobble so the loop doesn't sound perfectly mechanical -
 // the same "humanize" trick real sequencers use, kept small enough to stay
@@ -40,19 +49,30 @@ function jitterGain(base: number): number {
   return base * (0.85 + Math.random() * 0.3)
 }
 
-function scheduleBar(bar: number): void {
-  note(BASS[bar], BASS[bar], STEPS_PER_BAR * STEP, 'triangle', jitterGain(0.06), 0)
+function scheduleBar(bar: number, sparse: boolean): void {
+  if (!sparse) note(BASS[bar], BASS[bar], STEPS_PER_BAR * STEP, 'triangle', jitterGain(0.06), 0)
 
   MELODY.forEach((freq, step) => {
-    const delay = step * STEP + (Math.random() - 0.5) * 0.02
+    // clamped to 0 - step 0's own jitter can otherwise go slightly
+    // negative, and note() computes an absolute start time from it
+    // (ctx.currentTime + delay) that the Web Audio API throws on if it
+    // ends up negative, which was fatal: an uncaught throw here aborts
+    // scheduleBar() mid-loop, so the bar's own reschedule at the bottom of
+    // loop() never runs and the whole music loop dies silently for good
+    const delay = Math.max(0, step * STEP + (Math.random() - 0.5) * 0.02)
 
     if (freq) {
-      note(freq, freq, STEP * 0.9, 'sine', jitterGain(0.05), delay)
+      // during the break, drop roughly half the melody notes too, rather
+      // than just muting the bass under an unchanged melody
+      if (sparse && Math.random() < 0.55) return
+
+      note(freq, freq, STEP * 0.9, 'sine', jitterGain(sparse ? 0.035 : 0.05), delay)
       // an occasional soft octave-up sparkle - variety without ever
       // leaving the chord/scale safety net, since it's the same pitch
-      // class as the note it rides on, just doubled a register up
-      if (Math.random() < 0.18) note(freq * 2, freq * 2, STEP * 0.5, 'sine', jitterGain(0.02), delay)
-    } else if (Math.random() < 0.12) {
+      // class as the note it rides on, just doubled a register up.
+      // Skipped during the break - the point there is *less*, not more.
+      if (!sparse && Math.random() < 0.18) note(freq * 2, freq * 2, STEP * 0.5, 'sine', jitterGain(0.02), delay)
+    } else if (!sparse && Math.random() < 0.12) {
       // occasionally fill a rest with a quiet passing tone instead of
       // always the exact same silence there - picked from the same
       // pentatonic scale, so it's still guaranteed consonant
@@ -66,13 +86,19 @@ function scheduleBar(bar: number): void {
 function loop(bar: number): void {
   if (!musicOn) return
 
-  scheduleBar(bar)
+  const sparse = barCount % BREAK_EVERY >= BREAK_EVERY - BREAK_BARS
+
+  scheduleBar(bar, sparse)
+  barCount += 1
   timer = window.setTimeout(() => loop((bar + 1) % BASS.length), STEPS_PER_BAR * STEP * 1000)
 }
 
 export function startMusic(): void {
   if (musicOn) return
   musicOn = true
+  // always resumes at the start of a full cycle (not mid-break) - simpler
+  // and more predictable than remembering where a previous mute interrupted
+  barCount = 0
   loop(0)
 }
 

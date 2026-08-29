@@ -155,6 +155,14 @@ body {
   padding: 2px;
 }
 
+/* locked tray pieces read as unavailable, not just unstyled - grayscale
+   plus faded, same disabled language as .edit-only above */
+.tray-btn:disabled {
+  opacity: 0.35;
+  filter: grayscale(1);
+  cursor: default;
+}
+
 .tray-btn canvas {
   display: block;
   width: 36px;

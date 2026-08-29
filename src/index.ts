@@ -10,6 +10,7 @@ import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
 import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
+import { unlockedTypes, nextTier } from './progression'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -74,6 +75,8 @@ let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
+let unlocked = unlockedTypes(0)
+const trayButtons = new Map<ComponentType, HTMLButtonElement>()
 
 // the toast says *what* was discovered but not *where* - a burst pinpoints
 // it, especially useful when several stickers are on the canvas at once.
@@ -122,6 +125,47 @@ function renderCollectionList(): void {
 
 function updateDiscoveryCount(): void {
   discoveryCountEl.textContent = `✦ ${discoveredIds.size}/${RECIPES.length}`
+}
+
+// reflects the current unlock state onto the already-built tray buttons
+// (they're created once at startup - see TRAY_ORDER.forEach below - and
+// just get disabled/relabeled here, not recreated) so a locked piece can't
+// be dragged in and reads as locked at a glance
+function refreshTray(): void {
+  const next = nextTier(discoveredIds.size)
+  const remaining = next ? next.unlockAt - discoveredIds.size : 0
+
+  trayButtons.forEach((btn, type) => {
+    const isUnlocked = unlocked.has(type)
+
+    btn.disabled = !isUnlocked
+    btn.title = isUnlocked ?
+      type :
+      `Locked - ${remaining} more discover${remaining === 1 ? 'y' : 'ies'} to unlock`
+  })
+}
+
+// called after every discovery-count change, not just on unlock, so the
+// "N more to unlock" hint on still-locked pieces stays current. Detects a
+// *new* tier unlock by comparing set sizes (grows only when a threshold is
+// newly crossed) so the fanfare fires once, not on every print
+function checkUnlocks(): void {
+  const next = unlockedTypes(discoveredIds.size)
+
+  if (next.size > unlocked.size) {
+    unlocked = next
+    // delayed rather than shown immediately - a print that both discovers
+    // something *and* crosses an unlock threshold already put the
+    // discovery's own toast up via showToast in handlePrint; queuing this
+    // one after that toast's own 2200ms lets the player see both instead of
+    // this one silently clobbering it
+    window.setTimeout(() => {
+      showToast('✦ New pieces unlocked!')
+      playDiscovery()
+      mascotExcited()
+    }, 2300)
+  }
+  refreshTray()
 }
 
 // The manual "did I make something?" check (like Little Inferno's burn
@@ -211,6 +255,7 @@ function handlePrint(): void {
   if (anyNew) {
     updateDiscoveryCount()
     renderCollectionList()
+    checkUnlocks()
   }
 }
 
@@ -430,6 +475,10 @@ canvas.addEventListener('pointerup', () => {
 })
 
 function addSticker(type: ComponentType): void {
+  // tray buttons already disable themselves for locked types (see
+  // refreshTray), but guard the logic too rather than relying only on that
+  if (!unlocked.has(type)) return
+
   const p: Placed = {
     id: nextId,
     type,
@@ -476,8 +525,10 @@ TRAY_ORDER.forEach((type) => {
   )
 
   btn.addEventListener('click', () => addSticker(type))
+  trayButtons.set(type, btn)
   trayEl.appendChild(btn)
 })
+refreshTray()
 
 PALETTE.forEach((color) => {
   const btn = document.createElement('button')

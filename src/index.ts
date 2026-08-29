@@ -129,6 +129,11 @@ let unlocked = unlockedTypes(discoveredIds.size)
 interface Burst { x: number; y: number; at: number }
 let discoveryBursts: Burst[] = []
 
+// how many extra confetti bursts light up the canvas when the very last
+// recipe gets discovered - more than a single recipe's own one burst, since
+// this moment is meant to read as bigger than an ordinary discovery
+const COMPLETION_BURST_COUNT = 8
+
 // same shape as a discovery Burst plus the sticker's own color, since a
 // landing burst is single-colored rather than confetti's fixed rainbow
 // (see landingBurst.ts)
@@ -184,11 +189,11 @@ function selected(): Placed | undefined {
   return stickers.find(s => s.id === selectedId)
 }
 
-function showToast(text: string): void {
+function showToast(text: string, durationMs = 2200): void {
   toastEl.textContent = text
   toastEl.classList.add('show')
   window.clearTimeout(toastTimer)
-  toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
+  toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), durationMs)
 }
 
 // resolved by whichever of #confirmYes/#confirmNo gets clicked below - an
@@ -449,6 +454,10 @@ type ClusterOutcome = 'swept' | 'new' | 'known' | 'custom'
 async function handlePrint(): Promise<void> {
   if (stickers.length === 0) return
 
+  // captured before this print's own discoveries land, so completion can be
+  // detected as a transition (wasn't complete, now is) rather than firing on
+  // every later print once the collection is already full
+  const wasComplete = discoveredIds.size === RECIPES.length
   const now = performance.now()
   const clusters = clusterByOverlap(stickers.filter(s => s.groupId === null))
   const sweptIds = new Set<number>()
@@ -557,6 +566,27 @@ async function handlePrint(): Promise<void> {
     updateDiscoveryCount()
     checkUnlocks()
     updateRequest()
+  }
+
+  // no GDD-mandated "win state" (the design wants the game to stay fun
+  // after progression ends), but the full collection is still worth a beat
+  // - reuses the existing discovery burst/toast/sound systems wholesale
+  // rather than building a new one, just more of each. Delayed the same way
+  // checkUnlocks' own toast is, so it doesn't clobber this print's last
+  // per-recipe toast the instant it appears.
+  if (anyNew && !wasComplete && discoveredIds.size === RECIPES.length) {
+    for (let i = 0; i < COMPLETION_BURST_COUNT; i += 1) {
+      discoveryBursts.push({
+        x: Math.random() * CANVAS_WIDTH,
+        y: Math.random() * CANVAS_HEIGHT,
+        at: now,
+      })
+    }
+    window.setTimeout(() => {
+      showToast('🎉 Every sticker discovered!', 4000)
+      playDiscovery()
+      mascotExcited()
+    }, 2300)
   }
 
   // printing is the single biggest state change (new groups, swept

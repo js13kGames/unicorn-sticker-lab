@@ -1,11 +1,16 @@
 import './styles/game.css'
-import { COMPONENTS, TRAY_ORDER } from './components'
+import {
+  COMPONENTS, TRAY_ORDER, stampSilhouette, drawOutlined,
+} from './components'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
+  CANVAS_BG,
   PALETTE,
   DEFAULT_COLOR,
   SELECT_COLOR,
+  SHARED_OUTLINE_COLOR,
+  SHARED_OUTLINE_WIDTH,
 } from './constants'
 import type { ComponentType, Placed } from './types'
 
@@ -33,7 +38,7 @@ function selected(): Placed | undefined {
   return stickers.find(s => s.id === selectedId)
 }
 
-function drawPlaced(p: Placed): void {
+function placeRaw(p: Placed): void {
   ctx.save()
   ctx.translate(p.x, p.y)
   ctx.rotate(p.rotation)
@@ -42,11 +47,25 @@ function drawPlaced(p: Placed): void {
   ctx.restore()
 }
 
+// each sticker gets its own clean self-contained black outline
+function drawPlaced(p: Placed): void {
+  drawOutlined(ctx, () => placeRaw(p))
+}
+
 function render(): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
-  ctx.fillStyle = '#fdf6ff'
+  ctx.fillStyle = CANVAS_BG
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
+  // a thick white margin around the whole combined silhouette first, so
+  // layered stickers read as one sticker, then each piece drawn on top
+  // with its own individual outline
+  stampSilhouette(
+    ctx,
+    () => stickers.forEach(placeRaw),
+    SHARED_OUTLINE_COLOR,
+    SHARED_OUTLINE_WIDTH,
+  )
   stickers.forEach(drawPlaced)
 
   const sel = selected()
@@ -149,8 +168,16 @@ TRAY_ORDER.forEach((type) => {
   const iconCtx = icon.getContext('2d') as CanvasRenderingContext2D
 
   iconCtx.translate(24, 26)
-  iconCtx.scale(0.42, 0.42)
-  COMPONENTS[type](iconCtx, DEFAULT_COLOR)
+  drawOutlined(
+    iconCtx,
+    () => {
+      iconCtx.save()
+      iconCtx.scale(0.42, 0.42)
+      COMPONENTS[type](iconCtx, DEFAULT_COLOR)
+      iconCtx.restore()
+    },
+    3,
+  )
 
   btn.addEventListener('click', () => addSticker(type))
   trayEl.appendChild(btn)

@@ -3,7 +3,12 @@ import type { ComponentType } from './types'
 
 type Draw = (ctx: CanvasRenderingContext2D, color: string) => void
 
-// Fills the current path with `fill`, then strokes it with the sticker outline.
+// When set, every fill below is forced to this color instead of its real one.
+// Used to stamp a component's full silhouette for the merged sticker outline
+// (see drawWithOutline), so a component's own internal seams (e.g. a white
+// mane against a white body) never show their own separate borders.
+let paintOverride: string | null = null
+
 function blob(
   ctx: CanvasRenderingContext2D,
   fill: string,
@@ -12,11 +17,8 @@ function blob(
 ): void {
   ctx.beginPath()
   path()
-  ctx.fillStyle = fill
+  ctx.fillStyle = paintOverride ?? fill
   ctx.fill(rule)
-  ctx.lineWidth = OUTLINE_WIDTH
-  ctx.strokeStyle = OUTLINE_COLOR
-  ctx.stroke()
 }
 
 function circlePath(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
@@ -87,17 +89,9 @@ const drawRainbow: Draw = (ctx) => {
     ctx.beginPath()
     ctx.arc(0, 20, 36 - i * bandWidth, Math.PI, Math.PI * 2)
     ctx.lineWidth = bandWidth
-    ctx.strokeStyle = band
+    ctx.strokeStyle = paintOverride ?? band
     ctx.stroke()
   })
-  ctx.lineWidth = OUTLINE_WIDTH / 2
-  ctx.strokeStyle = OUTLINE_COLOR
-  ctx.beginPath()
-  ctx.arc(0, 20, 36, Math.PI, Math.PI * 2)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.arc(0, 20, 36 - bandWidth * RAINBOW_BANDS.length, Math.PI, Math.PI * 2)
-  ctx.stroke()
 }
 
 const drawCloud: Draw = (ctx, color) => {
@@ -179,8 +173,49 @@ const drawBalloon: Draw = (ctx, color) => {
   ctx.moveTo(0, 26)
   ctx.quadraticCurveTo(10, 34, 0, 44)
   ctx.lineWidth = 2
-  ctx.strokeStyle = OUTLINE_COLOR
+  ctx.strokeStyle = paintOverride ?? OUTLINE_COLOR
   ctx.stroke()
+}
+
+const OUTLINE_STEPS = 8
+
+// Gives a shared, uniform-width border around the combined silhouette of
+// whatever `place` draws, instead of a separate stroke per shape/component.
+// `place` should draw everything (any number of positioned components) with
+// no outer transform applied yet; this stamps its silhouette repeatedly
+// around a small ring in `color`, so a shape's own internal seams (e.g. a
+// white mane against a white body) never show their own separate borders.
+// Does not draw `place`'s real colors - pair with a later plain call to
+// `place()`, or use drawOutlined below for the common case.
+export function stampSilhouette(
+  ctx: CanvasRenderingContext2D,
+  place: () => void,
+  color: string,
+  width: number,
+): void {
+  paintOverride = color
+
+  for (let i = 0; i < OUTLINE_STEPS; i += 1) {
+    const angle = (Math.PI * 2 * i) / OUTLINE_STEPS
+
+    ctx.save()
+    ctx.translate(Math.cos(angle) * width, Math.sin(angle) * width)
+    place()
+    ctx.restore()
+  }
+
+  paintOverride = null
+}
+
+// Gives one placed sticker its own clean, self-contained outline (no seams
+// between its own internal parts), then draws it for real on top.
+export function drawOutlined(
+  ctx: CanvasRenderingContext2D,
+  place: () => void,
+  outlineWidth = OUTLINE_WIDTH,
+): void {
+  stampSilhouette(ctx, place, OUTLINE_COLOR, outlineWidth)
+  place()
 }
 
 export const COMPONENTS: Record<ComponentType, Draw> = {

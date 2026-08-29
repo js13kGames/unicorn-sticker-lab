@@ -12,6 +12,7 @@ import { clusterByOverlap } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import { unlockedTypes, nextTier } from './progression'
 import { saveGame, loadGame } from './save'
+import { pickRequest } from './requests'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -52,6 +53,7 @@ const colorsEl = document.getElementById('colors') as HTMLDivElement
 const effectsEl = document.getElementById('effects') as HTMLDivElement
 const toolbarEl = document.getElementById('toolbar') as HTMLDivElement
 const discoveryCountEl = document.getElementById('discoveryCount') as HTMLSpanElement
+const requestEl = document.getElementById('request') as HTMLDivElement
 const toastEl = document.getElementById('toast') as HTMLDivElement
 const collectionBtn = document.getElementById('collectionBtn') as HTMLButtonElement
 const collectionEl = document.getElementById('collection') as HTMLDivElement
@@ -134,14 +136,38 @@ function renderCollectionList(): void {
     const row = document.createElement('div')
 
     row.className = found ? 'discovery-row found' : 'discovery-row'
-    row.textContent = found ? r.name : '???'
-    if (!found) row.title = r.hint
+
+    if (found) {
+      row.textContent = r.name
+    } else {
+      // the hint used to live in a `title` tooltip - mouse-only, and
+      // nothing on the row hinted that hovering would reveal anything.
+      // Shown as ordinary row content instead, so it works the same on
+      // touch and doesn't depend on the player discovering the hover
+      const label = document.createElement('span')
+      const hint = document.createElement('span')
+
+      label.textContent = '???'
+      hint.className = 'hint'
+      hint.textContent = r.hint
+      row.appendChild(label)
+      row.appendChild(hint)
+    }
     collectionListEl.appendChild(row)
   })
 }
 
 function updateDiscoveryCount(): void {
   discoveryCountEl.textContent = `✦ ${discoveredIds.size}/${RECIPES.length}`
+}
+
+// GDD SS18's "request", kept proactive by construction - it's always on
+// screen, never behind a hover or a click into the Collection panel (see
+// pickRequest for why a fresh one doesn't need to be stored anywhere)
+function updateRequest(): void {
+  const request = pickRequest(discoveredIds, unlocked)
+
+  requestEl.textContent = request ? `✦ Try: ${request.hint}` : "✦ You've discovered every sticker!"
 }
 
 // reflects the current unlock state onto the already-built tray buttons
@@ -272,6 +298,7 @@ function handlePrint(): void {
     updateDiscoveryCount()
     renderCollectionList()
     checkUnlocks()
+    updateRequest()
   }
 
   // printing is the single biggest state change (new groups, swept
@@ -715,6 +742,7 @@ printBtn.addEventListener('click', handlePrint)
 
 updateDiscoveryCount()
 renderCollectionList()
+updateRequest()
 
 // stickers render continuously (not just on state changes) since effects
 // (sparkle/glow/hearts) animate on their own even when nothing else does

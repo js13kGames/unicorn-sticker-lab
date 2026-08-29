@@ -11,6 +11,7 @@ export const htmlTemplate = `
             <span id="discoveryCount"></span>
             <button id="collectionBtn">Collection</button>
         </div>
+        <div id="request"></div>
         <div id="stage">
             <canvas id="mascot" title="Your studio mascot"></canvas>
             <canvas id="c"></canvas>

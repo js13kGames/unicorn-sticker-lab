@@ -33,6 +33,21 @@ body {
   padding: 3px 8px;
 }
 
+/* GSS18's "request" - a proactive nudge toward one specific undiscovered
+   recipe, always visible (not a hover tooltip - see .discovery-row .hint
+   below for the same fix applied to the Collection panel) so it works the
+   same on touch as with a mouse and doesn't rely on the player noticing a
+   hover affordance exists at all */
+#request {
+  max-width: 400px;
+  background: $panel;
+  border: 2px solid $ink;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: center;
+}
+
 #stage {
   position: relative;
 }
@@ -287,4 +302,14 @@ body {
 
 .discovery-row.found {
   font-weight: bold;
+}
+
+/* the hint used to only exist as a `title` tooltip - mouse-only, and with
+   no visible affordance that hovering would even show anything. Shown as
+   its own always-visible piece of row content instead */
+.discovery-row .hint {
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.65;
+  text-align: right;
 }

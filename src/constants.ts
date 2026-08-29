@@ -9,6 +9,11 @@ export const OUTLINE_WIDTH = 4
 // background has to be dark enough for it to actually read against it.
 export const SHARED_OUTLINE_COLOR = '#ffffff'
 export const SHARED_OUTLINE_WIDTH = 8
+
+// printed stickers get a chunkier version of the same margin - a
+// persistent "this one's finished" cue that doesn't depend on selection,
+// since printing removes the need to distinguish individual layers
+export const PRINTED_OUTLINE_WIDTH = 13
 export const CANVAS_BG = '#9b7fe8'
 
 // Drawn with a dark halo underneath (see render()) so it stays visible

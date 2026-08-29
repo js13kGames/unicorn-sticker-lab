@@ -21,6 +21,7 @@ import {
   SELECT_COLOR,
   SHARED_OUTLINE_COLOR,
   SHARED_OUTLINE_WIDTH,
+  PRINTED_OUTLINE_WIDTH,
   OUTLINE_COLOR,
   OUTLINE_WIDTH,
 } from './constants'
@@ -327,9 +328,16 @@ function render(now: number): void {
   // here or the margin would get thicker/thinner as stickers are resized -
   // called once per sticker rather than once for the whole array so each
   // can use its own scale, but same-color overlapping fills still merge
-  // seamlessly into one shared margin regardless of that grouping
+  // seamlessly into one shared margin regardless of that grouping. Printed
+  // pieces get the chunkier width - a persistent "this one's finished" cue
+  // that doesn't depend on selection (see the Placement & Composition
+  // Ideas doc: the selection ring is centered on whichever single piece
+  // was clicked, not the group's own merged shape, so it was never a good
+  // fit for signalling "printed" in the first place)
   stickers.forEach((p) => {
-    stampSilhouette(ctx, () => placeRaw(p, now), SHARED_OUTLINE_COLOR, SHARED_OUTLINE_WIDTH / p.scale)
+    const width = p.groupId === null ? SHARED_OUTLINE_WIDTH : PRINTED_OUTLINE_WIDTH
+
+    stampSilhouette(ctx, () => placeRaw(p, now), SHARED_OUTLINE_COLOR, width / p.scale)
   })
   stickers.forEach(p => drawPlaced(p, now))
 

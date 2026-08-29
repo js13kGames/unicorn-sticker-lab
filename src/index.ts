@@ -9,6 +9,7 @@ import { renderMascot, mascotExcited } from './mascot'
 import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
 import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap } from './cluster'
+import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -73,6 +74,13 @@ let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
+
+// the toast says *what* was discovered but not *where* - a burst pinpoints
+// it, especially useful when several stickers are on the canvas at once.
+// An array, not a single slot: printing can turn up more than one new
+// discovery at a time if you built several valid clusters before printing.
+interface Burst { x: number; y: number; at: number }
+let discoveryBursts: Burst[] = []
 
 const PRINT_FLOURISH_MS = 500
 
@@ -175,6 +183,11 @@ function handlePrint(): void {
       discoveredIds.add(match.id)
       anyNew = true
       showToast(`✦ ${match.name}!`)
+      discoveryBursts.push({
+        x: cluster.reduce((sum, s) => sum + s.x, 0) / cluster.length,
+        y: cluster.reduce((sum, s) => sum + s.y, 0) / cluster.length,
+        at: now,
+      })
     }
   })
 
@@ -256,6 +269,14 @@ function render(now: number): void {
 
   stickers.forEach((p) => {
     if (p.effect !== 'none' && !isBehindEffect(p.effect)) placeEffect(p, now)
+  })
+
+  discoveryBursts = discoveryBursts.filter(b => now - b.at < BURST_DURATION_MS)
+  discoveryBursts.forEach((b) => {
+    ctx.save()
+    ctx.translate(b.x, b.y)
+    drawConfettiBurst(ctx, now - b.at)
+    ctx.restore()
   })
 
   const sel = selected()

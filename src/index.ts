@@ -222,13 +222,14 @@ toolbarEl.addEventListener('click', (e) => {
   if (act === 'scaleDown') sel.scale = Math.max(MIN_SCALE, sel.scale - SCALE_STEP)
   if (act === 'flip') sel.flip = !sel.flip
 
-  if (act === 'front') {
-    stickers = stickers.filter(s => s.id !== sel.id)
-    stickers.push(sel)
-  }
-  if (act === 'back') {
-    stickers = stickers.filter(s => s.id !== sel.id)
-    stickers.unshift(sel)
+  if (act === 'front' || act === 'back') {
+    const i = stickers.indexOf(sel)
+    const j = act === 'front' ? i + 1 : i - 1
+
+    if (j >= 0 && j < stickers.length) {
+      stickers[i] = stickers[j]
+      stickers[j] = sel
+    }
   }
   if (act === 'dup') {
     const clone: Placed = { ...sel, id: nextId, x: sel.x + 12, y: sel.y + 12 }

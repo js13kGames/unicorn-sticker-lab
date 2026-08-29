@@ -1,4 +1,4 @@
-import type { ComponentType } from './types'
+import type { ComponentType, EffectType, Placed } from './types'
 
 export interface Recipe {
   id: string
@@ -7,6 +7,20 @@ export interface Recipe {
   types: ComponentType[]
   name: string
   hint: string
+  // Optional extra conditions, on top of the type-set every recipe already
+  // needs - most recipes skip these. `colors`/`effects` follow the exact
+  // same "distinct set present must equal this, nothing more/less" rule as
+  // `types` (see findMatch) rather than a fuzzy "contains" check, so a
+  // match stays unambiguous - see the Placement & Composition Ideas doc's
+  // "Composition encouragement, take 2". `effects` ignores 'none': that's
+  // "no effect chosen" on a piece, not a real effect a recipe can ask for.
+  colors?: string[]
+  effects?: EffectType[]
+  // an occasional binary placement gate, hand-picked for one specific
+  // recipe rather than a general arrangement-quality score (that idea was
+  // explicitly rejected - see the same doc): `front`'s piece must be drawn
+  // on top of (later in z-order than) `behind`'s.
+  zOrder?: { front: ComponentType; behind: ComponentType }
 }
 
 // Deliberately simple for this vertical slice: a flat list of pairs, not
@@ -16,7 +30,7 @@ export interface Recipe {
 // have to equal a recipe's types, not just contain them - so building a
 // bigger sticker for its own sake never trivially satisfies every recipe
 // that shares a piece with it. Position/color/scale/count of each type
-// don't matter, only which distinct types are present.
+// don't matter unless a recipe opts into `colors`/`effects`/`zOrder` above.
 export const RECIPES: Recipe[] = [
   {
     id: 'rainbow-unicorn',
@@ -78,14 +92,56 @@ export const RECIPES: Recipe[] = [
     name: 'Double Rainbow',
     hint: 'What appears when the sun meets the rain?',
   },
+  {
+    id: 'ghost-unicorn',
+    types: ['unicorn', 'cloud'],
+    colors: ['#ffffff'],
+    name: 'Ghost Unicorn',
+    hint: 'Paint them both the same pale shade - hide it in plain sight.',
+  },
+  {
+    id: 'shooting-rainbow',
+    types: ['rainbow', 'star'],
+    effects: ['sparkle'],
+    name: 'Shooting Rainbow',
+    hint: 'A rainbow that twinkles needs a little extra shimmer.',
+  },
+  {
+    id: 'peekaboo-moon',
+    types: ['moon', 'cloud'],
+    zOrder: { front: 'moon', behind: 'cloud' },
+    name: 'Peekaboo Moon',
+    hint: "Who's hiding behind the clouds? Bring it out front.",
+  },
 ]
 
-// Returns the recipe a cluster's exact set of component types satisfies,
-// regardless of whether it's already been discovered - printing needs to
-// tell new/known/no-match apart, all from the same lookup.
-export function findMatch(presentTypes: Set<ComponentType>): Recipe | undefined {
-  return RECIPES.find(
-    r => r.types.length === presentTypes.size &&
-      r.types.every(t => presentTypes.has(t)),
-  )
+function setEquals<T>(want: T[], have: Set<T>): boolean {
+  return want.length === have.size && want.every(v => have.has(v))
+}
+
+// Returns the recipe a printed cluster satisfies, regardless of whether
+// it's already been discovered - printing needs to tell new/known/no-match
+// apart, all from the same lookup. Takes the whole cluster, not just its
+// types, because a recipe's optional colors/effects/zOrder conditions (see
+// Recipe above) need the actual pieces, not just which types are present.
+export function findMatch(cluster: Placed[]): Recipe | undefined {
+  const presentTypes = new Set(cluster.map(s => s.type))
+  const presentColors = new Set(cluster.map(s => s.color))
+  const presentEffects = new Set(cluster.map(s => s.effect).filter(e => e !== 'none'))
+
+  return RECIPES.find((r) => {
+    if (!setEquals(r.types, presentTypes)) return false
+    if (r.colors && !setEquals(r.colors, presentColors)) return false
+    if (r.effects && !setEquals(r.effects, presentEffects)) return false
+
+    if (r.zOrder) {
+      const { front, behind } = r.zOrder
+      const frontIdx = cluster.findIndex(s => s.type === front)
+      const behindIdx = cluster.findIndex(s => s.type === behind)
+
+      if (frontIdx === -1 || behindIdx === -1 || frontIdx < behindIdx) return false
+    }
+
+    return true
+  })
 }

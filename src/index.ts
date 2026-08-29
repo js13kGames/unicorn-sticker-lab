@@ -227,8 +227,7 @@ function handlePrint(): void {
       s.printedAt = now
     })
 
-    const presentTypes = new Set(cluster.map(s => s.type))
-    const match = findMatch(presentTypes)
+    const match = findMatch(cluster)
 
     if (!match) {
       anyCustom = true

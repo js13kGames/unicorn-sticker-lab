@@ -9,12 +9,16 @@ import type { ComponentType } from './types'
 // until it's found (recomputed fresh from discoveredIds/unlocked each
 // call, not stored state - nothing to keep in sync or drift out of date).
 //
-// Prefers a recipe buildable from currently-unlocked components, so the
-// request never asks for something the player doesn't have access to yet;
-// only falls back to a locked recipe once every unlocked one is already
-// discovered, so something is still shown rather than going empty early.
-export function pickRequest(discoveredIds: Set<string>, unlocked: Set<ComponentType>): Recipe | undefined {
+// Prefers a recipe buildable from currently-unlocked components *and*
+// currently-unlocked recipe size (progression.ts's RECIPE_SIZE_TIERS), so
+// the request never asks for something the player doesn't have access to
+// yet; only falls back to a locked recipe once every unlocked one is
+// already discovered, so something is still shown rather than going empty
+// early.
+export function pickRequest(
+  discoveredIds: Set<string>, unlocked: Set<ComponentType>, maxSize: number,
+): Recipe | undefined {
   const remaining = RECIPES.filter(r => !discoveredIds.has(r.id))
 
-  return remaining.find(r => r.types.every(t => unlocked.has(t))) ?? remaining[0]
+  return remaining.find(r => r.types.length <= maxSize && r.types.every(t => unlocked.has(t))) ?? remaining[0]
 }

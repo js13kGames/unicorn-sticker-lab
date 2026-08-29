@@ -11,7 +11,7 @@ import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap, circlesTouch } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import { drawLandingBurst, LANDING_BURST_MS } from './landingBurst'
-import { unlockedTypes, nextTier } from './progression'
+import { unlockedTypes, nextTier, maxUnlockedRecipeSize } from './progression'
 import { saveGame, loadGame } from './save'
 import { pickRequest } from './requests'
 import { addToAlbum, renderSnapshot } from './album'
@@ -126,6 +126,7 @@ if (saved) {
 }
 
 let unlocked = unlockedTypes(discoveredIds.size)
+let maxRecipeSize = maxUnlockedRecipeSize(discoveredIds.size)
 
 // the toast says *what* was discovered but not *where* - a burst pinpoints
 // it, especially useful when several stickers are on the canvas at once.
@@ -342,7 +343,7 @@ function renderAlbumGrid(): void {
 // screen, never behind a hover or a click into the Collection panel (see
 // pickRequest for why a fresh one doesn't need to be stored anywhere)
 function updateRequest(): void {
-  const request = pickRequest(discoveredIds, unlocked)
+  const request = pickRequest(discoveredIds, unlocked, maxUnlockedRecipeSize(discoveredIds.size))
 
   requestEl.textContent = request ? `✦ Try: ${request.hint}` : "✦ You've discovered every sticker!"
 }
@@ -412,6 +413,23 @@ function checkUnlocks(): void {
   refreshTray()
 }
 
+// same "detect a newly-crossed threshold, delay the fanfare" shape as
+// checkUnlocks above, but for RECIPE_SIZE_TIERS (progression.ts) rather
+// than component tiers - a plain number comparison instead of a Set, since
+// recipe size has no per-item identity to track
+function checkRecipeSizeUnlock(): void {
+  const next = maxUnlockedRecipeSize(discoveredIds.size)
+
+  if (next > maxRecipeSize) {
+    maxRecipeSize = next
+    window.setTimeout(() => {
+      showToast(`✦ Try combining ${next} pieces now!`)
+      playDiscovery()
+      mascotExcited()
+    }, 2300)
+  }
+}
+
 // erases every discovered recipe and, as a direct consequence, every
 // unlocked component (unlocked is always derived from discoveredIds.size -
 // see progression.ts - so there's no separate unlock state to reset here).
@@ -430,6 +448,7 @@ async function handleResetCollection(): Promise<void> {
   // "progress" means here
   recipeShots = {}
   unlocked = unlockedTypes(0)
+  maxRecipeSize = maxUnlockedRecipeSize(0)
   refreshTray()
   updateDiscoveryCount()
   renderCollectionList()
@@ -494,7 +513,7 @@ async function handlePrint(): Promise<void> {
     // album/Collection thumbnail should freeze the moment of printing, not
     // silently follow wherever the group ends up later
     const snapshot = cluster.map(s => ({ ...s }))
-    const match = findMatch(cluster)
+    const match = findMatch(cluster, maxRecipeSize)
 
     if (!match) {
       // still a real sticker (GDD SS14's "Failure" outcome is explicitly
@@ -570,6 +589,7 @@ async function handlePrint(): Promise<void> {
   if (anyNew) {
     updateDiscoveryCount()
     checkUnlocks()
+    checkRecipeSizeUnlock()
     updateRequest()
   }
 

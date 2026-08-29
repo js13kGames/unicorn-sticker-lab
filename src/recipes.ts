@@ -113,6 +113,29 @@ export const RECIPES: Recipe[] = [
     name: 'Peekaboo Moon',
     hint: "Who's hiding behind the clouds? Bring it out front.",
   },
+  // 3-ingredient recipes - gated behind RECIPE_SIZE_TIERS (progression.ts),
+  // not buildable until the player has some experience with pairs first.
+  // Being a superset of an existing pair's types is fine, not ambiguous -
+  // exact-set matching (see findMatch) means a 3-type cluster can never
+  // match a 2-type recipe or vice versa.
+  {
+    id: 'sunshower',
+    types: ['sun', 'cloud', 'rainbow'],
+    name: 'Sunshower',
+    hint: "Sun's out and it's raining - what does that make?",
+  },
+  {
+    id: 'cosmic-unicorn',
+    types: ['unicorn', 'rainbow', 'star'],
+    name: 'Cosmic Unicorn',
+    hint: 'The ultimate magical creature - spare no ingredient.',
+  },
+  {
+    id: 'birthday-wish',
+    types: ['heart', 'star', 'balloon'],
+    name: 'Birthday Wish',
+    hint: "A wish, a treat, and something sky-high - what's the occasion?",
+  },
 ]
 
 function setEquals<T>(want: T[], have: Set<T>): boolean {
@@ -124,12 +147,17 @@ function setEquals<T>(want: T[], have: Set<T>): boolean {
 // apart, all from the same lookup. Takes the whole cluster, not just its
 // types, because a recipe's optional colors/effects/zOrder conditions (see
 // Recipe above) need the actual pieces, not just which types are present.
-export function findMatch(cluster: Placed[]): Recipe | undefined {
+// `maxSize` is the biggest recipe size progression currently allows
+// (progression.ts's maxUnlockedRecipeSize) - a recipe bigger than that is
+// treated as if it doesn't exist yet, so an early 3-piece cluster just
+// prints as an ordinary custom creation until 3-ingredient recipes unlock.
+export function findMatch(cluster: Placed[], maxSize: number): Recipe | undefined {
   const presentTypes = new Set(cluster.map(s => s.type))
   const presentColors = new Set(cluster.map(s => s.color))
   const presentEffects = new Set(cluster.map(s => s.effect).filter(e => e !== 'none'))
 
   return RECIPES.find((r) => {
+    if (r.types.length > maxSize) return false
     if (!setEquals(r.types, presentTypes)) return false
     if (r.colors && !setEquals(r.colors, presentColors)) return false
     if (r.effects && !setEquals(r.effects, presentEffects)) return false

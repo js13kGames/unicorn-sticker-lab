@@ -8,6 +8,8 @@ export type ComponentType =
   | 'moon'
   | 'balloon'
 
+export type EffectType = 'none' | 'sparkle' | 'glow' | 'hearts'
+
 export interface Placed {
   id: number
   type: ComponentType
@@ -17,4 +19,5 @@ export interface Placed {
   rotation: number
   color: string
   flip: boolean
+  effect: EffectType
 }

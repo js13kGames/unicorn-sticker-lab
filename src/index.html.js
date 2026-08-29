@@ -23,6 +23,7 @@ export const htmlTemplate = `
             <button data-act="del" title="Delete">&#10005;</button>
         </div>
         <div id="colors"></div>
+        <div id="effects"></div>
         <div id="tray"></div>
     </div>
 </body>

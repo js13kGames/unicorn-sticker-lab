@@ -6,6 +6,7 @@ import {
   playPlace, playDelete, playClick, playDrop,
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
+import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -18,7 +19,14 @@ import {
   OUTLINE_COLOR,
   OUTLINE_WIDTH,
 } from './constants'
-import type { ComponentType, Placed } from './types'
+import type { ComponentType, Placed, EffectType } from './types'
+
+const EFFECT_LABEL: Record<EffectType, string> = {
+  none: '&#8856;',
+  sparkle: '&#10022;',
+  glow: '&#9673;',
+  hearts: '&#9829;',
+}
 
 const canvas = document.getElementById('c') as HTMLCanvasElement
 
@@ -35,6 +43,7 @@ const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
 const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
+const effectsEl = document.getElementById('effects') as HTMLDivElement
 const toolbarEl = document.getElementById('toolbar') as HTMLDivElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
@@ -73,10 +82,29 @@ function drawPlaced(p: Placed): void {
   drawOutlined(ctx, () => placeRaw(p), OUTLINE_WIDTH / p.scale)
 }
 
-function render(): void {
+// effects draw in the sticker's own local space so they move/scale with it,
+// but outside placeRaw - they're not part of the sticker's own silhouette
+// (glow/sparkle shouldn't be forced into the flat outline colors, or get
+// stroked as if they were solid sticker shapes)
+function placeEffect(p: Placed, now: number): void {
+  if (p.effect === 'none') return
+
+  ctx.save()
+  ctx.translate(p.x, p.y)
+  ctx.rotate(p.rotation)
+  ctx.scale(p.scale, p.scale)
+  drawEffect(ctx, p.effect, now)
+  ctx.restore()
+}
+
+function render(now: number): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
   ctx.fillStyle = CANVAS_BG
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+  stickers.forEach((p) => {
+    if (isBehindEffect(p.effect)) placeEffect(p, now)
+  })
 
   // a thick white margin around the whole combined silhouette first, so
   // layered stickers read as one sticker, then each piece drawn on top
@@ -90,6 +118,10 @@ function render(): void {
     stampSilhouette(ctx, () => placeRaw(p), SHARED_OUTLINE_COLOR, SHARED_OUTLINE_WIDTH / p.scale)
   })
   stickers.forEach(drawPlaced)
+
+  stickers.forEach((p) => {
+    if (p.effect !== 'none' && !isBehindEffect(p.effect)) placeEffect(p, now)
+  })
 
   const sel = selected()
 
@@ -111,6 +143,22 @@ function render(): void {
   }
 
   toolbarEl.classList.toggle('active', !!sel)
+  effectsEl.classList.toggle('active', !!sel)
+
+  // reflect the selected sticker's own color/effect, not just whatever was
+  // last clicked - otherwise switching between stickers with different
+  // colors/effects leaves the old selection's buttons highlighted
+  const activeColor = sel ? sel.color : currentColor
+
+  colorsEl.querySelectorAll('.swatch').forEach((el) => {
+    el.classList.toggle('active', (el as HTMLElement).dataset.color === activeColor)
+  })
+
+  const activeEffect = sel ? sel.effect : 'none'
+
+  effectsEl.querySelectorAll('.effect-btn').forEach((el) => {
+    el.classList.toggle('active', (el as HTMLElement).dataset.effect === activeEffect)
+  })
 }
 
 function pointerPos(e: PointerEvent): { x: number; y: number } {
@@ -176,7 +224,6 @@ canvas.addEventListener('pointerdown', (e) => {
   } else {
     selectedId = null
   }
-  render()
 })
 
 canvas.addEventListener('pointermove', (e) => {
@@ -190,7 +237,6 @@ canvas.addEventListener('pointermove', (e) => {
 
   sel.x = Math.min(CANVAS_WIDTH, Math.max(0, x - dragOffset.x))
   sel.y = Math.min(CANVAS_HEIGHT, Math.max(0, y - dragOffset.y))
-  render()
 })
 
 canvas.addEventListener('pointerup', () => {
@@ -208,6 +254,7 @@ function addSticker(type: ComponentType): void {
     rotation: 0,
     color: currentColor,
     flip: false,
+    effect: 'none',
   }
 
   nextId += 1
@@ -215,7 +262,6 @@ function addSticker(type: ComponentType): void {
   selectedId = p.id
   playPlace()
   mascotExcited()
-  render()
 }
 
 TRAY_ORDER.forEach((type) => {
@@ -252,23 +298,36 @@ PALETTE.forEach((color) => {
   btn.className = 'swatch'
   btn.style.background = color
   btn.title = color
+  btn.dataset.color = color
 
   btn.addEventListener('click', () => {
     currentColor = color
-    colorsEl.querySelectorAll('.swatch').forEach(el => el.classList.remove('active'))
-    btn.classList.add('active')
     playClick()
 
     const sel = selected()
 
-    if (sel) {
-      sel.color = color
-      render()
-    }
+    if (sel) sel.color = color
   })
   colorsEl.appendChild(btn)
-});
-(colorsEl.firstElementChild as HTMLElement)?.classList.add('active')
+})
+
+EFFECT_ORDER.forEach((effect) => {
+  const btn = document.createElement('button')
+
+  btn.className = 'effect-btn'
+  btn.title = effect
+  btn.innerHTML = EFFECT_LABEL[effect]
+  btn.dataset.effect = effect
+
+  btn.addEventListener('click', () => {
+    playClick()
+
+    const sel = selected()
+
+    if (sel) sel.effect = effect
+  })
+  effectsEl.appendChild(btn)
+})
 
 const ROTATE_STEP = Math.PI / 12
 const SCALE_STEP = 0.1
@@ -315,8 +374,6 @@ toolbarEl.addEventListener('click', (e) => {
   } else {
     playClick()
   }
-
-  render()
 })
 
 window.addEventListener('keydown', (e) => {
@@ -335,11 +392,16 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') sel.x += nudge
   if (e.key === 'ArrowUp') sel.y -= nudge
   if (e.key === 'ArrowDown') sel.y += nudge
-
-  render()
 })
 
-render()
+// stickers render continuously (not just on state changes) since effects
+// (sparkle/glow/hearts) animate on their own even when nothing else does
+function loop(now: number): void {
+  render(now)
+  requestAnimationFrame(loop)
+}
+
+requestAnimationFrame(loop)
 
 // tracked globally (not just over the mascot canvas) so the eyes keep
 // following the cursor anywhere on the page, not only while over the mascot

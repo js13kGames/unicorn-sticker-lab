@@ -1,6 +1,7 @@
 import { OUTLINE_COLOR } from './constants'
 
 const PIECE_COUNT = 8
+const FLASH_MS = 90
 
 export const LANDING_BURST_MS = 260
 
@@ -15,7 +16,26 @@ export const LANDING_BURST_MS = 260
 // the caller translates to the landing spot first.
 export function drawLandingBurst(ctx: CanvasRenderingContext2D, elapsed: number, color: string): void {
   const t = Math.min(1, elapsed / LANDING_BURST_MS)
-  const alpha = 1 - t
+  // holds full brightness for the first third rather than fading from
+  // frame one - same "punchy, not weak from the start" reasoning as
+  // confetti.ts's own burst
+  const alpha = t < 0.33 ? 1 : 1 - (t - 0.33) / 0.67
+
+  // a quick bright flash at the origin, the same idiom confetti.ts uses for
+  // its own "pop" - scaled down to fit this burst's much shorter lifetime,
+  // since a same-colored puff alone still reads as weak the instant it
+  // appears, however dark-outlined each dot is
+  if (elapsed < FLASH_MS) {
+    const flashT = elapsed / FLASH_MS
+
+    ctx.save()
+    ctx.globalAlpha = 1 - flashT
+    ctx.fillStyle = '#fff6b0'
+    ctx.beginPath()
+    ctx.arc(0, 0, 6 + flashT * 16, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
 
   for (let i = 0; i < PIECE_COUNT; i += 1) {
     const angle = (i / PIECE_COUNT) * Math.PI * 2
@@ -27,7 +47,7 @@ export function drawLandingBurst(ctx: CanvasRenderingContext2D, elapsed: number,
     const dist = 30 + t * 30
     const px = Math.cos(angle) * dist
     const py = Math.sin(angle) * dist
-    const radius = 4 - t * 2.5
+    const radius = 5.5 - t * 3
 
     ctx.save()
     ctx.globalAlpha = alpha
@@ -37,8 +57,9 @@ export function drawLandingBurst(ctx: CanvasRenderingContext2D, elapsed: number,
     // "dark halo + bright top" - a burst in the sticker's own color has no
     // guaranteed contrast against the canvas background or the sticker
     // itself (a purple sticker on the purple canvas, say), so every dot
-    // gets one regardless of what color it actually is
-    ctx.lineWidth = 1.5
+    // gets one regardless of what color it actually is. Thicker than
+    // before (was 1.5) - still not enough contrast per direct feedback.
+    ctx.lineWidth = 2.2
     ctx.strokeStyle = OUTLINE_COLOR
     ctx.stroke()
     ctx.fillStyle = color

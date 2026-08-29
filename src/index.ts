@@ -945,7 +945,10 @@ function addSticker(type: ComponentType): void {
 
   nextId += 1
   stickers.push(p)
-  selectedId = p.id
+  // deliberately not auto-selected: the ring sat right on top of the
+  // freshly-placed piece and covered the landing burst it's meant to be
+  // celebrating. Still grabbable/draggable immediately either way -
+  // pointerdown's own hit-testing doesn't depend on prior selection.
   landingBursts.push({
     x, y, color: currentColor, at: now,
   })
@@ -1248,12 +1251,17 @@ const TITLE_MASCOT_SCALE = 1.8
 // this is meant to read as a subtle textured watermark behind the title
 // card, not compete with the foreground mascot/floaters for attention.
 const BG_DRIFT_ALPHA = 0.1
-const BG_DRIFTERS = TRAY_ORDER.map((type, i) => ({
+// two passes of every type (16 rows, not 8) for a denser field - `i` still
+// runs across the full doubled list, so the two instances of a given type
+// land in different rows with different phases rather than moving in
+// lockstep with each other
+const BG_DRIFT_TYPES: ComponentType[] = [...TRAY_ORDER, ...TRAY_ORDER]
+const BG_DRIFTERS = BG_DRIFT_TYPES.map((type, i) => ({
   type,
-  yFrac: (i + 0.5) / TRAY_ORDER.length,
+  yFrac: (i + 0.5) / BG_DRIFT_TYPES.length,
   speed: 10 + (i % 3) * 5,
   scale: 0.6 + (i % 4) * 0.15,
-  phase: (i / TRAY_ORDER.length) + 0.05,
+  phase: (i / BG_DRIFT_TYPES.length) + 0.05,
 }))
 
 function resizeTitleBg(): void {

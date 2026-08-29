@@ -11,7 +11,9 @@ export const SHARED_OUTLINE_COLOR = '#ffffff'
 export const SHARED_OUTLINE_WIDTH = 8
 export const CANVAS_BG = '#9b7fe8'
 
-export const SELECT_COLOR = '#4d7cff'
+// Drawn with a dark halo underneath (see render()) so it stays visible
+// regardless of what color happens to be under it.
+export const SELECT_COLOR = '#ffd93d'
 
 export const PALETTE = [
   '#ff6b9d', // pink

@@ -11,6 +11,7 @@ import {
   SELECT_COLOR,
   SHARED_OUTLINE_COLOR,
   SHARED_OUTLINE_WIDTH,
+  OUTLINE_COLOR,
 } from './constants'
 import type { ComponentType, Placed } from './types'
 
@@ -24,7 +25,13 @@ const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
 const toolbarEl = document.getElementById('toolbar') as HTMLDivElement
 
-const HIT_RADIUS = 40
+// Must be big enough to enclose every component's actual rendered pixels,
+// not just its raw path geometry: the farthest points (balloon string tip,
+// unicorn horn, rainbow ends) sit ~41-44 units out on their own, and the
+// shared white outline and each component's own outline both dilate that
+// further outward on top (up to ~12 more at this width) - comfortable
+// margin beyond that combined worst case, rather than a tight fit.
+const HIT_RADIUS = 64
 const MIN_SCALE = 0.4
 const MAX_SCALE = 2.5
 
@@ -73,10 +80,16 @@ function render(): void {
   if (sel) {
     ctx.save()
     ctx.setLineDash([6, 5])
-    ctx.lineWidth = 2
-    ctx.strokeStyle = SELECT_COLOR
     ctx.beginPath()
     ctx.arc(sel.x, sel.y, HIT_RADIUS * sel.scale, 0, Math.PI * 2)
+
+    // dark halo first, then the bright dashes on top - stays visible
+    // against light or dark backgrounds instead of just one of them
+    ctx.lineWidth = 4
+    ctx.strokeStyle = OUTLINE_COLOR
+    ctx.stroke()
+    ctx.lineWidth = 2
+    ctx.strokeStyle = SELECT_COLOR
     ctx.stroke()
     ctx.restore()
   }
@@ -93,13 +106,16 @@ function pointerPos(e: PointerEvent): { x: number; y: number } {
   }
 }
 
+function withinRadius(s: Placed, x: number, y: number): boolean {
+  const dx = x - s.x
+  const dy = y - s.y
+
+  return Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS * s.scale
+}
+
 function hitTest(x: number, y: number): Placed | undefined {
   for (let i = stickers.length - 1; i >= 0; i -= 1) {
-    const s = stickers[i]
-    const dx = x - s.x
-    const dy = y - s.y
-
-    if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS * s.scale) return s
+    if (withinRadius(stickers[i], x, y)) return stickers[i]
   }
 
   return undefined
@@ -107,7 +123,12 @@ function hitTest(x: number, y: number): Placed | undefined {
 
 canvas.addEventListener('pointerdown', (e) => {
   const { x, y } = pointerPos(e)
-  const hit = hitTest(x, y)
+  const sel = selected()
+  // the selection ring is drawn above every other sticker, so clicking
+  // inside it should keep grabbing the already-selected sticker even when
+  // a different one is stacked on top there - otherwise the ring would be
+  // lying about what you can click
+  const hit = sel && withinRadius(sel, x, y) ? sel : hitTest(x, y)
 
   if (hit) {
     selectedId = hit.id

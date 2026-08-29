@@ -136,7 +136,14 @@ body {
     position: absolute;
     top: 142px;
     left: -106px;
-    width: 96px;
+    /* content-box (the default, unset anywhere in this project): padding
+       (6px each side) and border (2px each side) add to this, not eat
+       into it, so 86px content + 12px padding + 4px border = 102px
+       rendered - matching #mascot's own rendered width (96px content +
+       3px border each side) so both line up on the same right edge with
+       the same small gap to #stage, instead of #request alone running
+       6px past it into the canvas */
+    width: 86px;
     margin-bottom: 0;
     padding: 4px 6px;
     font-size: 10px;

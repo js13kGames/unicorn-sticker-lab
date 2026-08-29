@@ -1,3 +1,5 @@
+import { OUTLINE_COLOR } from './constants'
+
 const PIECE_COUNT = 8
 
 export const LANDING_BURST_MS = 260
@@ -25,12 +27,21 @@ export function drawLandingBurst(ctx: CanvasRenderingContext2D, elapsed: number,
     const dist = 30 + t * 30
     const px = Math.cos(angle) * dist
     const py = Math.sin(angle) * dist
+    const radius = 4 - t * 2.5
 
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.fillStyle = color
     ctx.beginPath()
-    ctx.arc(px, py, 3 - t * 2, 0, Math.PI * 2)
+    ctx.arc(px, py, radius, 0, Math.PI * 2)
+    // a dark outline first, same reasoning as the selection ring's own
+    // "dark halo + bright top" - a burst in the sticker's own color has no
+    // guaranteed contrast against the canvas background or the sticker
+    // itself (a purple sticker on the purple canvas, say), so every dot
+    // gets one regardless of what color it actually is
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = OUTLINE_COLOR
+    ctx.stroke()
+    ctx.fillStyle = color
     ctx.fill()
     ctx.restore()
   }

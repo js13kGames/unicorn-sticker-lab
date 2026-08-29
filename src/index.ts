@@ -817,9 +817,10 @@ function addSticker(type: ComponentType): void {
     x,
     y,
     scale: 1,
-    // a slight random tilt on landing reads as it having actually dropped
-    // there, rather than always arriving perfectly upright
-    rotation: (Math.random() * 2 - 1) * 0.15,
+    // always upright on landing - a random tilt here made it impossible to
+    // get a piece perfectly straight again (no "reset rotation" action,
+    // and the toolbar only rotates in fixed steps from wherever it is)
+    rotation: 0,
     color: currentColor,
     flip: false,
     effect: 'none',

@@ -48,6 +48,7 @@ mascotCanvas.width = MASCOT_SIZE
 mascotCanvas.height = MASCOT_SIZE
 const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
+const appEl = document.getElementById('app') as HTMLDivElement
 const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
 const effectsEl = document.getElementById('effects') as HTMLDivElement
@@ -168,6 +169,30 @@ function updateRequest(): void {
   const request = pickRequest(discoveredIds, unlocked)
 
   requestEl.textContent = request ? `✦ Try: ${request.hint}` : "✦ You've discovered every sticker!"
+}
+
+// On wide viewports #request tucks under #mascot (see game.css) - but
+// #stage's rendered width now varies (the canvas can shrink on short
+// viewports), so it isn't always #app's widest child, and a fixed CSS
+// offset from #app's own edge can drift out from under the mascot. This
+// measures #mascot's actual rendered position and places #request
+// relative to that instead, which stays correct regardless of which
+// element ends up widest. Narrow viewports don't need any of this - the
+// CSS default is an ordinary centered row, so this just clears any
+// leftover inline position from a previous wide layout.
+function positionRequest(): void {
+  if (!window.matchMedia('(min-width: 640px)').matches) {
+    requestEl.style.left = ''
+    requestEl.style.top = ''
+
+    return
+  }
+
+  const mascotRect = mascotCanvas.getBoundingClientRect()
+  const appRect = appEl.getBoundingClientRect()
+
+  requestEl.style.left = `${mascotRect.left - appRect.left}px`
+  requestEl.style.top = `${mascotRect.bottom - appRect.top + 10}px`
 }
 
 // reflects the current unlock state onto the already-built tray buttons
@@ -750,6 +775,8 @@ printBtn.addEventListener('click', handlePrint)
 updateDiscoveryCount()
 renderCollectionList()
 updateRequest()
+positionRequest()
+window.addEventListener('resize', positionRequest)
 
 // stickers render continuously (not just on state changes) since effects
 // (sparkle/glow/hearts) animate on their own even when nothing else does

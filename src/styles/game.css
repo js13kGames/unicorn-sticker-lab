@@ -49,7 +49,26 @@ body {
    hover affordance exists at all. An ordinary row above the canvas by
    default - margin-bottom is bigger than #app's own 6px flex gap because
    the mascot floats up to 20px above #stage's own top edge here (see
-   #mascot below), and without the extra clearance the two overlap. */
+   #mascot below), and without the extra clearance the two overlap.
+   #request has to stay #stage's *sibling*, not its child, despite reading
+   as visually tucked under the mascot in wide mode below: a sibling can
+   be a normal-flow block that reserves real space here in narrow mode
+   (needed so it doesn't get overlapped by the mascot's own -20px peek,
+   which is always relative to wherever #stage's box actually starts) -
+   nesting it inside #stage was tried and reverted, since #stage's first
+   flow child unavoidably starts exactly where that peek begins.
+
+   Its exact wide-viewport position is set in JS (positionRequest() in
+   index.ts), not here - #stage's rendered width now varies (the canvas
+   can shrink on short viewports, see #c below), so whether #stage or
+   #tray ends up as #app's widest child depends on viewport size. Rather
+   than force #tray to shrink in lockstep (tried - it wrapped into many
+   rows and made short viewports *taller*, the opposite of the point) or
+   duplicate the canvas's own responsive formula in a second CSS rule
+   (fragile - the two would drift if one is ever tuned without the
+   other), JS measures #mascot's actual rendered position directly and
+   places #request relative to that measurement - correct regardless of
+   which element ends up widest. */
 #request {
   max-width: 400px;
   margin-bottom: 18px;
@@ -124,25 +143,19 @@ body {
   /* tucked under the mascot instead of its own row above the canvas - reads
      as the mascot handing over the hint, and (like #mascot/#toast) taken
      out of #app's normal flow entirely rather than just repositioned, so it
-     can't add height #app doesn't have room for. Positioned relative to
-     #app (see #app's own position:relative above), not #stage, since
-     #request is #stage's sibling, not its child - #app renders exactly as
-     wide as #stage (its widest child, 406px including border) with no
-     padding of its own, so the same left offset that lines #mascot up
-     with #stage lines #request up with #app too. `top` is measured
-     (header row height + #app's 6px gap + mascot's own height + a small
-     gap beneath it), not derived from a formula the two elements share. */
+     can't add height #app doesn't have room for. `left`/`top` aren't set
+     here - see #request's base rule above for why that's now JS's job
+     (positionRequest() in index.ts) rather than a fixed offset. */
   #request {
     position: absolute;
-    top: 142px;
-    left: -106px;
     /* content-box (the default, unset anywhere in this project): padding
        (6px each side) and border (2px each side) add to this, not eat
        into it, so 86px content + 12px padding + 4px border = 102px
        rendered - matching #mascot's own rendered width (96px content +
-       3px border each side) so both line up on the same right edge with
-       the same small gap to #stage, instead of #request alone running
-       6px past it into the canvas */
+       3px border each side), so JS lining their left edges up (see
+       positionRequest()) puts both boxes' *right* edges at the same
+       line too, instead of #request alone running past it toward the
+       canvas */
     width: 86px;
     margin-bottom: 0;
     padding: 4px 6px;
@@ -150,7 +163,21 @@ body {
   }
 }
 
+/* Shrinks on short/square viewports instead of just overflowing - the rest
+   of #app's column (header, request, print button, toolbar, colors,
+   effects, tray) adds up to a fairly fixed ~260px regardless of the
+   canvas's own size, so a viewport short enough that 100vh minus that
+   budget is less than 400px would overflow at a fixed 400px canvas. The
+   canvas's internal drawing resolution stays CANVAS_WIDTH/HEIGHT (400)
+   either way - pointerPos() in index.ts already normalizes clicks/drags
+   through the canvas's *rendered* size (getBoundingClientRect), not a 1:1
+   pixel assumption, specifically so this kind of CSS-only resize doesn't
+   need any matching JS change. height:auto relies on the canvas's own
+   width/height attributes (also 400x400) giving it a natural 1:1 aspect
+   ratio to scale against. */
 #c {
+  width: $canvasSize;
+  height: auto;
   background: $panel;
   border: 3px solid $ink;
   border-radius: 16px;

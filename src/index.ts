@@ -51,6 +51,11 @@ mascotCanvas.width = MASCOT_SIZE
 mascotCanvas.height = MASCOT_SIZE
 const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
+const titleEl = document.getElementById('title') as HTMLDivElement
+const titleCanvas = document.getElementById('titleCanvas') as HTMLCanvasElement
+const titleCtx = titleCanvas.getContext('2d') as CanvasRenderingContext2D
+const startBtn = document.getElementById('startBtn') as HTMLButtonElement
+
 const appEl = document.getElementById('app') as HTMLDivElement
 const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
@@ -1130,6 +1135,19 @@ printBtn.addEventListener('click', handlePrint)
 clearBtn.addEventListener('click', handleClearCanvas)
 resetBtn.addEventListener('click', handleResetCollection)
 
+// reads as a "launch" moment, not a "discovery" one, but reuses the exact
+// same burst array/renderer a discovery already uses (load-bearing decision
+// #10 - different triggers, not different systems) rather than adding a
+// dedicated title-screen effect
+let titleVisible = true
+
+startBtn.addEventListener('click', () => {
+  titleVisible = false
+  titleEl.classList.add('hidden')
+  playClick()
+  discoveryBursts.push({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, at: performance.now() })
+})
+
 updateDiscoveryCount()
 renderCollectionList()
 updateRequest()
@@ -1169,3 +1187,50 @@ function mascotLoop(now: number): void {
 }
 
 requestAnimationFrame(mascotLoop)
+
+// a few Tier-1 pieces (unicorn itself skipped - the mascot already is one)
+// bobbing around the title mascot, drawn with the same drawOutlined() look
+// as real stickers so they don't read as separate visual language - "here's
+// what you can build" rather than new decorative art
+const TITLE_FLOATERS: { type: ComponentType; x: number; y: number; scale: number; phase: number; color: string }[] = [
+  { type: 'rainbow', x: 40, y: 42, scale: 0.45, phase: 0, color: PALETTE[6] },
+  { type: 'star', x: 240, y: 36, scale: 0.35, phase: 1.3, color: PALETTE[3] },
+  { type: 'heart', x: 236, y: 132, scale: 0.35, phase: 2.6, color: PALETTE[0] },
+  { type: 'cloud', x: 44, y: 130, scale: 0.4, phase: 4, color: PALETTE[7] },
+]
+
+const TITLE_MASCOT_SCALE = 1.8
+
+// stops rescheduling itself once dismissed - no sense paying for a second
+// mascot render once the player is in the actual game
+function titleLoop(now: number): void {
+  if (!titleVisible) return
+
+  const rect = titleCanvas.getBoundingClientRect()
+  const lookX = pointerScreenX - (rect.left + rect.width / 2)
+  const lookY = pointerScreenY - (rect.top + rect.height / 2)
+
+  // renderMascot() clears the whole canvas itself - scaling up first and
+  // passing pre-scaled width/height keeps it centering correctly in the
+  // scaled space (mascot.ts doesn't otherwise support a bigger size) - so
+  // the floaters below have to be drawn *after*, or this clear would wipe
+  // them
+  titleCtx.save()
+  titleCtx.scale(TITLE_MASCOT_SCALE, TITLE_MASCOT_SCALE)
+  renderMascot(
+    titleCtx, 280 / TITLE_MASCOT_SCALE, 170 / TITLE_MASCOT_SCALE, now, 0, lookX, lookY,
+  )
+  titleCtx.restore()
+
+  TITLE_FLOATERS.forEach((f) => {
+    titleCtx.save()
+    titleCtx.translate(f.x, f.y + Math.sin(now / 900 + f.phase) * 6)
+    titleCtx.scale(f.scale, f.scale)
+    drawOutlined(titleCtx, () => COMPONENTS[f.type](titleCtx, f.color), 6)
+    titleCtx.restore()
+  })
+
+  requestAnimationFrame(titleLoop)
+}
+
+requestAnimationFrame(titleLoop)

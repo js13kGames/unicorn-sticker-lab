@@ -330,7 +330,8 @@ body {
    mascot/toast above: anything that toggles visibility stays out of flow) */
 #collection,
 #album,
-#confirm {
+#confirm,
+#title {
   position: fixed;
   inset: 0;
   background: rgba(43, 43, 43, 0.5);
@@ -350,8 +351,66 @@ body {
 
 #collection.hidden,
 #album.hidden,
-#confirm.hidden {
+#confirm.hidden,
+#title.hidden {
   display: none;
+}
+
+/* the very first thing a player sees, not another in-game modal - a solid
+   background rather than the translucent dimmer #collection/#album/#confirm
+   share (tuned for glimpsing the board underneath), so a returning player's
+   already-restored canvas doesn't show through and compete with the title
+   card */
+#title {
+  flex-direction: column;
+  gap: 8px;
+  background: $bg;
+  text-align: center;
+  animation: titleIn 0.4s ease;
+}
+
+@keyframes titleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+#titleCanvas {
+  width: 280px;
+  max-width: 80vw;
+  height: auto;
+  background: $panel;
+  border: 3px solid $ink;
+  border-radius: 16px;
+}
+
+#title h1 {
+  margin: 4px 0 0;
+  font-size: 24px;
+}
+
+#title p {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+#startBtn {
+  margin-top: 4px;
+  border: 2px solid $ink;
+  background: $accent;
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 8px 26px;
 }
 
 #collectionPanel,

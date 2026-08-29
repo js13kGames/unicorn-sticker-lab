@@ -13,7 +13,7 @@ function getAudioContext(): AudioContext {
 // "descending" cue, flat reads as a click. Scheduled via the audio clock
 // (not setTimeout) so sequences like playDiscovery's arpeggio stay
 // sample-accurate instead of drifting with JS timer jitter.
-function note(
+export function note(
   freqFrom: number,
   freqTo: number,
   duration: number,

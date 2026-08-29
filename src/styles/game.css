@@ -29,6 +29,12 @@ body {
   font-size: 13px;
 }
 
+/* dimmed, same disabled/locked language as .tray-btn:disabled elsewhere -
+   reads as "off" without needing a second glyph for the muted state */
+#muteBtn.muted {
+  opacity: 0.4;
+}
+
 #header button {
   border: 2px solid $ink;
   background: $panel;

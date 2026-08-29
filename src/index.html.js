@@ -11,6 +11,7 @@ export const htmlTemplate = `
             <span id="discoveryCount"></span>
             <button id="collectionBtn">Collection</button>
             <button id="albumBtn">Album</button>
+            <button id="muteBtn" title="Mute music">&#9834;</button>
         </div>
         <div id="request"></div>
         <div id="stage">

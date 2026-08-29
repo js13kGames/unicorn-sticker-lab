@@ -6,6 +6,7 @@ import {
   playPlace, playDelete, playClick, playDrop, playDiscovery,
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
+import { startMusic, toggleMusic } from './music'
 import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
 import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap, circlesTouch } from './cluster'
@@ -72,6 +73,7 @@ const printBtn = document.getElementById('printBtn') as HTMLButtonElement
 const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement
 const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement
 const albumBtn = document.getElementById('albumBtn') as HTMLButtonElement
+const muteBtn = document.getElementById('muteBtn') as HTMLButtonElement
 const albumEl = document.getElementById('album') as HTMLDivElement
 const albumCloseBtn = document.getElementById('albumClose') as HTMLButtonElement
 const albumGridEl = document.getElementById('albumGrid') as HTMLDivElement
@@ -1166,6 +1168,20 @@ startBtn.addEventListener('click', () => {
   titleEl.classList.add('hidden')
   playClick()
   discoveryBursts.push({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, at: performance.now() })
+  // Start is the first guaranteed user gesture (per the Title Screen Plan
+  // doc's own resolved audio-permission question) - playClick() above
+  // already resumes the shared AudioContext, so music begins right on cue
+  // rather than waiting for whatever incidental first click unlocks it
+  startMusic()
+})
+
+muteBtn.addEventListener('click', () => {
+  playClick()
+
+  const on = toggleMusic()
+
+  muteBtn.classList.toggle('muted', !on)
+  muteBtn.title = on ? 'Mute music' : 'Unmute music'
 })
 
 updateDiscoveryCount()

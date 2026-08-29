@@ -1,3 +1,5 @@
+import type { ComponentType } from './types'
+
 export const CANVAS_WIDTH = 400
 export const CANVAS_HEIGHT = 400
 
@@ -34,3 +36,21 @@ export const PALETTE = [
 ]
 
 export const DEFAULT_COLOR = PALETTE[0]
+
+// each component's own natural color, for anywhere a piece is shown as
+// itself rather than as something the player has actively recolored (tray
+// icons, the title screen's decorative pieces) - DEFAULT_COLOR alone made
+// every one of them read as "pink," even a cloud or a moon. rainbow's own
+// draw function ignores its color argument entirely (it always draws its
+// fixed RAINBOW_BANDS), so its entry here is unused but kept for type
+// completeness.
+export const NATURAL_COLOR: Record<ComponentType, string> = {
+  unicorn: PALETTE[0], // pink
+  rainbow: PALETTE[0],
+  cloud: PALETTE[8], // white
+  star: PALETTE[3], // gold
+  heart: PALETTE[1], // red
+  sun: PALETTE[2], // orange
+  moon: PALETTE[8], // pale
+  balloon: PALETTE[1], // red
+}

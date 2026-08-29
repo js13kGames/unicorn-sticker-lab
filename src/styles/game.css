@@ -387,6 +387,21 @@ body {
   }
 }
 
+/* out of #title's own flex flow (like the toast/mascot elsewhere) so it
+   can't add layout height - just a full-viewport backdrop the drifting
+   pieces (drawTitleBg in index.ts) render into, sitting behind every
+   normal-flow child since it's first in the markup and #title's other
+   children paint after it at the same default stacking level */
+#titleBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* purely decorative - a full-viewport layer would otherwise sit on top
+     of (and intercept clicks meant for) #startBtn */
+  pointer-events: none;
+}
+
 #titleCanvas {
   width: 280px;
   max-width: 80vw;

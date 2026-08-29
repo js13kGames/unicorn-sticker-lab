@@ -1,6 +1,6 @@
 import './styles/game.css'
 import {
-  COMPONENTS, TRAY_ORDER, stampSilhouette, drawOutlined,
+  COMPONENTS, TRAY_ORDER, stampSilhouette, stampFlat, drawOutlined,
 } from './components'
 import {
   playPlace, playDelete, playClick, playDrop, playDiscovery,
@@ -23,6 +23,7 @@ import {
   CANVAS_BG,
   PALETTE,
   DEFAULT_COLOR,
+  NATURAL_COLOR,
   SELECT_COLOR,
   SHARED_OUTLINE_COLOR,
   SHARED_OUTLINE_WIDTH,
@@ -53,6 +54,8 @@ mascotCanvas.height = MASCOT_SIZE
 const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
 const titleEl = document.getElementById('title') as HTMLDivElement
+const titleBgCanvas = document.getElementById('titleBg') as HTMLCanvasElement
+const titleBgCtx = titleBgCanvas.getContext('2d') as CanvasRenderingContext2D
 const titleCanvas = document.getElementById('titleCanvas') as HTMLCanvasElement
 const titleCtx = titleCanvas.getContext('2d') as CanvasRenderingContext2D
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement
@@ -968,7 +971,7 @@ TRAY_ORDER.forEach((type) => {
     () => {
       iconCtx.save()
       iconCtx.scale(0.42, 0.42)
-      COMPONENTS[type](iconCtx, DEFAULT_COLOR)
+      COMPONENTS[type](iconCtx, NATURAL_COLOR[type])
       iconCtx.restore()
     },
     3,
@@ -1227,20 +1230,69 @@ requestAnimationFrame(mascotLoop)
 // a few Tier-1 pieces (unicorn itself skipped - the mascot already is one)
 // bobbing around the title mascot, drawn with the same drawOutlined() look
 // as real stickers so they don't read as separate visual language - "here's
-// what you can build" rather than new decorative art
-const TITLE_FLOATERS: { type: ComponentType; x: number; y: number; scale: number; phase: number; color: string }[] = [
-  { type: 'rainbow', x: 40, y: 42, scale: 0.45, phase: 0, color: PALETTE[6] },
-  { type: 'star', x: 240, y: 36, scale: 0.35, phase: 1.3, color: PALETTE[3] },
-  { type: 'heart', x: 236, y: 132, scale: 0.35, phase: 2.6, color: PALETTE[0] },
-  { type: 'cloud', x: 44, y: 130, scale: 0.4, phase: 4, color: PALETTE[7] },
+// what you can build" rather than new decorative art. Each in its own
+// NATURAL_COLOR rather than one flat tint, so they read as the actual
+// pieces (a white cloud, a gold star) instead of a uniform recolor.
+const TITLE_FLOATERS: { type: ComponentType; x: number; y: number; scale: number; phase: number }[] = [
+  { type: 'rainbow', x: 40, y: 42, scale: 0.45, phase: 0 },
+  { type: 'star', x: 240, y: 36, scale: 0.35, phase: 1.3 },
+  { type: 'heart', x: 236, y: 132, scale: 0.35, phase: 2.6 },
+  { type: 'cloud', x: 44, y: 130, scale: 0.4, phase: 4 },
 ]
 
 const TITLE_MASCOT_SCALE = 1.8
 
+// every component drifting slowly across the full title backdrop, not just
+// the boxed canvas - "instead of a blank background." Flat monochrome
+// (stampFlat, CANVAS_BG at low alpha) rather than each piece's real color:
+// this is meant to read as a subtle textured watermark behind the title
+// card, not compete with the foreground mascot/floaters for attention.
+const BG_DRIFT_ALPHA = 0.1
+const BG_DRIFTERS = TRAY_ORDER.map((type, i) => ({
+  type,
+  yFrac: (i + 0.5) / TRAY_ORDER.length,
+  speed: 10 + (i % 3) * 5,
+  scale: 0.6 + (i % 4) * 0.15,
+  phase: (i / TRAY_ORDER.length) + 0.05,
+}))
+
+function resizeTitleBg(): void {
+  titleBgCanvas.width = window.innerWidth
+  titleBgCanvas.height = window.innerHeight
+}
+
+function drawTitleBg(now: number): void {
+  const w = titleBgCanvas.width
+  const h = titleBgCanvas.height
+
+  titleBgCtx.clearRect(0, 0, w, h)
+  titleBgCtx.globalAlpha = BG_DRIFT_ALPHA
+
+  BG_DRIFTERS.forEach((d) => {
+    const margin = 70 * d.scale
+    const span = w + margin * 2
+    const x = (((now / 1000) * d.speed + d.phase * span) % span) - margin
+
+    titleBgCtx.save()
+    titleBgCtx.translate(x, d.yFrac * h)
+    titleBgCtx.scale(d.scale, d.scale)
+    stampFlat(titleBgCtx, () => COMPONENTS[d.type](titleBgCtx, ''), CANVAS_BG)
+    titleBgCtx.restore()
+  })
+
+  titleBgCtx.globalAlpha = 1
+}
+
+resizeTitleBg()
+window.addEventListener('resize', resizeTitleBg)
+
 // stops rescheduling itself once dismissed - no sense paying for a second
-// mascot render once the player is in the actual game
+// mascot render (or the drifting backdrop) once the player is in the actual
+// game
 function titleLoop(now: number): void {
   if (!titleVisible) return
+
+  drawTitleBg(now)
 
   const rect = titleCanvas.getBoundingClientRect()
   const lookX = pointerScreenX - (rect.left + rect.width / 2)
@@ -1262,7 +1314,7 @@ function titleLoop(now: number): void {
     titleCtx.save()
     titleCtx.translate(f.x, f.y + Math.sin(now / 900 + f.phase) * 6)
     titleCtx.scale(f.scale, f.scale)
-    drawOutlined(titleCtx, () => COMPONENTS[f.type](titleCtx, f.color), 6)
+    drawOutlined(titleCtx, () => COMPONENTS[f.type](titleCtx, NATURAL_COLOR[f.type]), 6)
     titleCtx.restore()
   })
 

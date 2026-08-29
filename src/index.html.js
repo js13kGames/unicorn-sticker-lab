@@ -62,6 +62,7 @@ export const htmlTemplate = `
             </div>
         </div>
         <div id="title">
+            <canvas id="titleBg"></canvas>
             <canvas id="titleCanvas" width="280" height="170"></canvas>
             <h1>Unicorn Sticker Lab</h1>
             <p>Design magical stickers. Discover the secret combos.</p>

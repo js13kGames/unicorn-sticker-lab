@@ -246,6 +246,17 @@ export function stampSilhouette(
   outlineWidth = null
 }
 
+// A flat, single-color silhouette with no outline dilation - the title
+// screen's background drifters use this for a subtle monochrome
+// "watermark," not a real outlined sticker. Reuses the same paintOverride
+// mechanism stampSilhouette does, but leaves outlineWidth untouched (null)
+// so blob()'s stroke branch never fires - just a plain flat fill.
+export function stampFlat(ctx: CanvasRenderingContext2D, place: () => void, color: string): void {
+  paintOverride = color
+  place()
+  paintOverride = null
+}
+
 // Gives one placed sticker its own clean, self-contained outline (no seams
 // between its own internal parts), then draws it for real on top.
 export function drawOutlined(

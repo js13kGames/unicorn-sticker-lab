@@ -10,7 +10,12 @@ body {
   touch-action: none;
 }
 
+/* relative only so the wide-viewport #request override below (which needs
+   to sit under the mascot, itself positioned relative to #stage) has a
+   stable ancestor to measure from - doesn't otherwise change #app's own
+   layout, since #app itself gets no top/left/etc. */
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -33,23 +38,27 @@ body {
   padding: 3px 8px;
 }
 
+#stage {
+  position: relative;
+}
+
 /* GSS18's "request" - a proactive nudge toward one specific undiscovered
    recipe, always visible (not a hover tooltip - see .discovery-row .hint
    below for the same fix applied to the Collection panel) so it works the
    same on touch as with a mouse and doesn't rely on the player noticing a
-   hover affordance exists at all */
+   hover affordance exists at all. An ordinary row above the canvas by
+   default - margin-bottom is bigger than #app's own 6px flex gap because
+   the mascot floats up to 20px above #stage's own top edge here (see
+   #mascot below), and without the extra clearance the two overlap. */
 #request {
   max-width: 400px;
+  margin-bottom: 18px;
   background: $panel;
   border: 2px solid $ink;
   border-radius: 10px;
   padding: 6px 12px;
   font-size: 12px;
   text-align: center;
-}
-
-#stage {
-  position: relative;
 }
 
 /* not part of the normal layout flow (like the mascot) - a temporary
@@ -110,6 +119,27 @@ body {
     top: 0;
     left: -106px;
     transform: none;
+  }
+
+  /* tucked under the mascot instead of its own row above the canvas - reads
+     as the mascot handing over the hint, and (like #mascot/#toast) taken
+     out of #app's normal flow entirely rather than just repositioned, so it
+     can't add height #app doesn't have room for. Positioned relative to
+     #app (see #app's own position:relative above), not #stage, since
+     #request is #stage's sibling, not its child - #app renders exactly as
+     wide as #stage (its widest child, 406px including border) with no
+     padding of its own, so the same left offset that lines #mascot up
+     with #stage lines #request up with #app too. `top` is measured
+     (header row height + #app's 6px gap + mascot's own height + a small
+     gap beneath it), not derived from a formula the two elements share. */
+  #request {
+    position: absolute;
+    top: 142px;
+    left: -106px;
+    width: 96px;
+    margin-bottom: 0;
+    padding: 4px 6px;
+    font-size: 10px;
   }
 }
 

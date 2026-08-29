@@ -70,6 +70,10 @@ const albumBtn = document.getElementById('albumBtn') as HTMLButtonElement
 const albumEl = document.getElementById('album') as HTMLDivElement
 const albumCloseBtn = document.getElementById('albumClose') as HTMLButtonElement
 const albumGridEl = document.getElementById('albumGrid') as HTMLDivElement
+const confirmEl = document.getElementById('confirm') as HTMLDivElement
+const confirmTextEl = document.getElementById('confirmText') as HTMLParagraphElement
+const confirmYesBtn = document.getElementById('confirmYes') as HTMLButtonElement
+const confirmNoBtn = document.getElementById('confirmNo') as HTMLButtonElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
 // not just its raw path geometry: the farthest points (balloon string tip,
@@ -185,6 +189,21 @@ function showToast(text: string): void {
   toastEl.classList.add('show')
   window.clearTimeout(toastTimer)
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
+}
+
+// resolved by whichever of #confirmYes/#confirmNo gets clicked below - an
+// in-game replacement for window.confirm(), which looks and feels nothing
+// like the rest of the game. Only one confirmation is ever open at a
+// time, so a single stored resolver (rather than a queue) is enough.
+let confirmResolve: ((ok: boolean) => void) | null = null
+
+function showConfirm(text: string): Promise<boolean> {
+  confirmTextEl.textContent = text
+  confirmEl.classList.remove('hidden')
+
+  return new Promise((resolve) => {
+    confirmResolve = resolve
+  })
 }
 
 // a key visual element (the doc's own framing after "still too small,
@@ -390,9 +409,9 @@ function checkUnlocks(): void {
 // just the current canvas arrangement (see handleClearCanvas above for
 // that distinction). Doesn't touch stickers - a fresh start on discoveries
 // shouldn't silently delete whatever's still being built.
-function handleResetCollection(): void {
+async function handleResetCollection(): Promise<void> {
   if (discoveredIds.size === 0) return
-  if (!window.confirm('Reset all discovered recipes and unlocked pieces? This cannot be undone.')) return
+  if (!(await showConfirm('Reset all discovered recipes and unlocked pieces? This cannot be undone.'))) return
 
   discoveredIds.clear()
   // recipeShots are meaningless without their discovery - the album
@@ -425,23 +444,27 @@ function handleResetCollection(): void {
 //     sticker (a valid custom creation, no fanfare) - failure never just
 //     deletes your work
 //   - an isolated single with nothing unprinted overlapping it: removed
-function handlePrint(): void {
+type ClusterOutcome = 'swept' | 'new' | 'known' | 'custom'
+
+async function handlePrint(): Promise<void> {
   if (stickers.length === 0) return
 
   const now = performance.now()
   const clusters = clusterByOverlap(stickers.filter(s => s.groupId === null))
   const sweptIds = new Set<number>()
-  let anySwept = false
-  let anyNew = false
-  let anyKnown = false
-  let anyCustom = false
 
-  clusters.forEach((cluster) => {
+  // one cluster's worth of the old forEach body, pulled out so the loop
+  // below can stay flat (a single await per iteration) instead of nesting
+  // an early-exit path per case - `continue`/for-of are both off the
+  // table under this project's eslint config, and a classic indexed loop
+  // still lets each cluster's confirm() (if any) resolve before the next
+  // cluster is processed, same sequencing the old synchronous
+  // window.confirm() gave for free.
+  async function processCluster(cluster: Placed[]): Promise<ClusterOutcome> {
     if (cluster.length === 1) {
       sweptIds.add(cluster[0].id)
-      anySwept = true
 
-      return
+      return 'swept'
     }
 
     const groupId = nextGroupId
@@ -460,37 +483,53 @@ function handlePrint(): void {
     const match = findMatch(cluster)
 
     if (!match) {
-      anyCustom = true
       // still a real sticker (GDD SS14's "Failure" outcome is explicitly
       // still a valid one) - the album journal is for every print, not
       // just the ones that named something
       album = addToAlbum(album, snapshot, null)
 
-      return
+      return 'custom'
     }
 
     album = addToAlbum(album, snapshot, match.id)
 
     if (discoveredIds.has(match.id)) {
-      anyKnown = true
       showToast(match.name)
       // purely the player's own taste call, never forced - only offered
       // when there's an existing shot that could actually be replaced
-      if (window.confirm(`Use this as your picture for ${match.name}?`)) {
+      if (await showConfirm(`Use this as your picture for ${match.name}?`)) {
         recipeShots[match.id] = snapshot
       }
-    } else {
-      discoveredIds.add(match.id)
-      recipeShots[match.id] = snapshot
-      anyNew = true
-      showToast(`✦ ${match.name}!`)
-      discoveryBursts.push({
-        x: cluster.reduce((sum, s) => sum + s.x, 0) / cluster.length,
-        y: cluster.reduce((sum, s) => sum + s.y, 0) / cluster.length,
-        at: now,
-      })
+
+      return 'known'
     }
-  })
+
+    discoveredIds.add(match.id)
+    recipeShots[match.id] = snapshot
+    showToast(`✦ ${match.name}!`)
+    discoveryBursts.push({
+      x: cluster.reduce((sum, s) => sum + s.x, 0) / cluster.length,
+      y: cluster.reduce((sum, s) => sum + s.y, 0) / cluster.length,
+      at: now,
+    })
+
+    return 'new'
+  }
+
+  let anySwept = false
+  let anyNew = false
+  let anyKnown = false
+  let anyCustom = false
+
+  for (let i = 0; i < clusters.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const outcome = await processCluster(clusters[i])
+
+    if (outcome === 'swept') anySwept = true
+    if (outcome === 'new') anyNew = true
+    if (outcome === 'known') anyKnown = true
+    if (outcome === 'custom') anyCustom = true
+  }
 
   // groups are formed in place above (mutating groupId/printedAt), so the
   // only structural change needed is dropping the swept singles - already-
@@ -534,9 +573,9 @@ function handlePrint(): void {
 // player's actual progress lives on the canvas itself (no album/gallery
 // exists yet - see the Placement & Composition Ideas doc), so clearing it
 // only costs the current arrangement, not anything already discovered.
-function handleClearCanvas(): void {
+async function handleClearCanvas(): Promise<void> {
   if (stickers.length === 0) return
-  if (!window.confirm('Clear the whole canvas?')) return
+  if (!(await showConfirm('Clear the whole canvas?'))) return
 
   stickers = []
   selectedId = null
@@ -1046,6 +1085,16 @@ albumCloseBtn.addEventListener('click', () => {
   playClick()
   albumEl.classList.add('hidden')
 })
+
+function resolveConfirm(ok: boolean): void {
+  playClick()
+  confirmEl.classList.add('hidden')
+  confirmResolve?.(ok)
+  confirmResolve = null
+}
+
+confirmYesBtn.addEventListener('click', () => resolveConfirm(true))
+confirmNoBtn.addEventListener('click', () => resolveConfirm(false))
 
 printBtn.addEventListener('click', handlePrint)
 clearBtn.addEventListener('click', handleClearCanvas)

@@ -51,6 +51,15 @@ export const htmlTemplate = `
                 <div id="albumGrid"></div>
             </div>
         </div>
+        <div id="confirm" class="hidden">
+            <div id="confirmPanel">
+                <p id="confirmText"></p>
+                <div id="confirmButtons">
+                    <button id="confirmYes">Yes</button>
+                    <button id="confirmNo">No</button>
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 </html>

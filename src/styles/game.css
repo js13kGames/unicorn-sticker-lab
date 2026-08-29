@@ -329,7 +329,8 @@ body {
    height at all, and a shown one shouldn't either (same reasoning as the
    mascot/toast above: anything that toggles visibility stays out of flow) */
 #collection,
-#album {
+#album,
+#confirm {
   position: fixed;
   inset: 0;
   background: rgba(43, 43, 43, 0.5);
@@ -339,8 +340,17 @@ body {
   z-index: 10;
 }
 
+/* explicit rather than relying on DOM order (it's the last of the three
+   in the markup, so it would already paint on top) - #confirm can open
+   from inside an already-open #collection (Reset Progress), and needs to
+   sit above it regardless of how the markup gets reordered later */
+#confirm {
+  z-index: 11;
+}
+
 #collection.hidden,
-#album.hidden {
+#album.hidden,
+#confirm.hidden {
   display: none;
 }
 
@@ -382,6 +392,51 @@ body {
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
+}
+
+/* an in-game replacement for window.confirm() (Clear, Reset Progress, and
+   replacing a Collection picture all used to block on the browser's own
+   alert chrome, which looks and feels nothing like the rest of the game) -
+   smaller and simpler than #collectionPanel/#albumPanel above: no close
+   button, no scrolling, just a question and two buttons */
+#confirmPanel {
+  background: $panel;
+  border: 3px solid $ink;
+  border-radius: 16px;
+  padding: 18px;
+  width: 280px;
+  max-width: 85vw;
+  text-align: center;
+}
+
+#confirmText {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+#confirmButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+#confirmButtons button {
+  flex: 1;
+  border: 2px solid $ink;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 6px 0;
+}
+
+#confirmYes {
+  background: $accent;
+  color: #fff;
+}
+
+#confirmNo {
+  background: $panel;
 }
 
 .discovery-row {

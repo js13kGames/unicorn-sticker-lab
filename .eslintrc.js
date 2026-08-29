@@ -31,6 +31,10 @@ module.exports = {
     'comma-dangle': ['error', 'always-multiline'],
     'consistent-return': ['off'],
     'import/extensions': 0,
+    // named exports throughout, even for single-export files (matches every
+    // other module in this project - COMPONENTS, RECIPES, etc. are all
+    // named, not default)
+    'import/prefer-default-export': 'off',
 
     'import/no-extraneous-dependencies': [
       'error',

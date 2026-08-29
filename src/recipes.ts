@@ -80,15 +80,12 @@ export const RECIPES: Recipe[] = [
   },
 ]
 
-// Returns the first not-yet-discovered recipe now exactly satisfied by
-// what's on the canvas, or undefined if there isn't one.
-export function findNewDiscovery(
-  presentTypes: Set<ComponentType>,
-  discoveredIds: ReadonlySet<string>,
-): Recipe | undefined {
+// Returns the recipe a cluster's exact set of component types satisfies,
+// regardless of whether it's already been discovered - printing needs to
+// tell new/known/no-match apart, all from the same lookup.
+export function findMatch(presentTypes: Set<ComponentType>): Recipe | undefined {
   return RECIPES.find(
-    r => !discoveredIds.has(r.id) &&
-      r.types.length === presentTypes.size &&
+    r => r.types.length === presentTypes.size &&
       r.types.every(t => presentTypes.has(t)),
   )
 }

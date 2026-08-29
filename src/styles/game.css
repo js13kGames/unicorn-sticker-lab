@@ -105,6 +105,20 @@ body {
   touch-action: none;
 }
 
+/* the primary action, not just another tool - accented and a bit bigger
+   than the toolbar buttons so it reads as "the thing you do when you're
+   ready", always enabled (unlike the toolbar/effects rows) */
+#printBtn {
+  border: 2px solid $ink;
+  background: $accent;
+  color: #fff;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 5px 14px;
+}
+
 #toolbar {
   display: flex;
   gap: 6px;
@@ -115,6 +129,15 @@ body {
 #toolbar.active {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* printing is final - a printed sticker can still be moved or deleted as a
+   whole, but not edited piece by piece, so every toolbar button except
+   delete disables itself specifically (not the whole toolbar) when the
+   selection is a printed group */
+.edit-only:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 #toolbar button,

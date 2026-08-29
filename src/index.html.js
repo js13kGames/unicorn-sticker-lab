@@ -16,15 +16,16 @@ export const htmlTemplate = `
             <canvas id="c"></canvas>
             <div id="toast"></div>
         </div>
+        <button id="printBtn" title="Print your sticker - combines overlapping pieces, clears the rest">&#128424; Print</button>
         <div id="toolbar">
-            <button data-act="rotL" title="Rotate left">&#8634;</button>
-            <button data-act="rotR" title="Rotate right">&#8635;</button>
-            <button data-act="scaleDown" title="Smaller">&minus;</button>
-            <button data-act="scaleUp" title="Bigger">&plus;</button>
-            <button data-act="flip" title="Flip">&#8646;</button>
-            <button data-act="back" title="Send back">&#8659;</button>
-            <button data-act="front" title="Bring forward">&#8657;</button>
-            <button data-act="dup" title="Duplicate">&#10697;</button>
+            <button class="edit-only" data-act="rotL" title="Rotate left">&#8634;</button>
+            <button class="edit-only" data-act="rotR" title="Rotate right">&#8635;</button>
+            <button class="edit-only" data-act="scaleDown" title="Smaller">&minus;</button>
+            <button class="edit-only" data-act="scaleUp" title="Bigger">&plus;</button>
+            <button class="edit-only" data-act="flip" title="Flip">&#8646;</button>
+            <button class="edit-only" data-act="back" title="Send back">&#8659;</button>
+            <button class="edit-only" data-act="front" title="Bring forward">&#8657;</button>
+            <button class="edit-only" data-act="dup" title="Duplicate">&#10697;</button>
             <button data-act="del" title="Delete">&#10005;</button>
         </div>
         <div id="colors"></div>

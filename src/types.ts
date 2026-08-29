@@ -20,4 +20,8 @@ export interface Placed {
   color: string
   flip: boolean
   effect: EffectType
+  // set together by Print: stickers sharing a groupId move/delete as one
+  // unit from then on, and printedAt drives the brief "float up" flourish
+  groupId: number | null
+  printedAt: number | null
 }

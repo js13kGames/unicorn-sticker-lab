@@ -7,7 +7,8 @@ import {
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
 import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
-import { RECIPES, findNewDiscovery } from './recipes'
+import { RECIPES, findMatch } from './recipes'
+import { clusterByOverlap } from './cluster'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -52,6 +53,7 @@ const collectionBtn = document.getElementById('collectionBtn') as HTMLButtonElem
 const collectionEl = document.getElementById('collection') as HTMLDivElement
 const collectionCloseBtn = document.getElementById('collectionClose') as HTMLButtonElement
 const collectionListEl = document.getElementById('collectionList') as HTMLDivElement
+const printBtn = document.getElementById('printBtn') as HTMLButtonElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
 // not just its raw path geometry: the farthest points (balloon string tip,
@@ -65,11 +67,26 @@ const MAX_SCALE = 2.5
 
 let stickers: Placed[] = []
 let nextId = 1
+let nextGroupId = 1
 let selectedId: number | null = null
 let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
+
+const PRINT_FLOURISH_MS = 500
+
+// a brief rise-then-settle applied only visually (not to the sticker's real
+// x/y, so hit-testing and dragging are unaffected) right after printing
+function printFlourish(p: Placed, now: number): number {
+  if (p.printedAt === null) return 0
+
+  const t = now - p.printedAt
+
+  if (t < 0 || t > PRINT_FLOURISH_MS) return 0
+
+  return -Math.sin((t / PRINT_FLOURISH_MS) * Math.PI) * 14
+}
 
 function selected(): Placed | undefined {
   return stickers.find(s => s.id === selectedId)
@@ -99,26 +116,94 @@ function updateDiscoveryCount(): void {
   discoveryCountEl.textContent = `✦ ${discoveredIds.size}/${RECIPES.length}`
 }
 
-// checked every frame (cheap: a handful of stickers against ten recipes) so
-// a discovery fires the moment both ingredients are on the canvas together,
-// whether that's from placing a new one or just dragging pieces into place
-function checkDiscoveries(): void {
-  const presentTypes = new Set(stickers.map(s => s.type))
-  const found = findNewDiscovery(presentTypes, discoveredIds)
+// The manual "did I make something?" check (like Little Inferno's burn
+// trigger), not a continuous one - an earlier version checked every frame,
+// but that meant discoveries fired passively just from having ingredients
+// anywhere on the canvas, with no reward for actually composing them
+// together. Printing clusters the *unprinted* stickers by overlap (already-
+// printed ones are final - see the `editable` comment above - so they never
+// re-enter clustering at all: two printed stickers can't merge just because
+// they happen to overlap, and neither can a loose piece overlapping one)
+// and resolves each cluster on its own:
+//   - a cluster of 2+ whose exact set of types matches a recipe: becomes
+//     one grouped sticker, full fanfare if it's newly discovered, a
+//     smaller one if already known
+//   - a cluster of 2+ that matches nothing: still becomes one grouped
+//     sticker (a valid custom creation, no fanfare) - failure never just
+//     deletes your work
+//   - an isolated single with nothing unprinted overlapping it: removed
+function handlePrint(): void {
+  if (stickers.length === 0) return
 
-  if (!found) return
+  const now = performance.now()
+  const clusters = clusterByOverlap(stickers.filter(s => s.groupId === null))
+  const sweptIds = new Set<number>()
+  let anySwept = false
+  let anyNew = false
+  let anyKnown = false
+  let anyCustom = false
 
-  discoveredIds.add(found.id)
-  playDiscovery()
-  mascotExcited()
-  showToast(`✦ ${found.name}!`)
-  updateDiscoveryCount()
-  renderCollectionList()
+  clusters.forEach((cluster) => {
+    if (cluster.length === 1) {
+      sweptIds.add(cluster[0].id)
+      anySwept = true
+
+      return
+    }
+
+    const groupId = nextGroupId
+
+    nextGroupId += 1
+    cluster.forEach((s) => {
+      s.groupId = groupId
+      s.printedAt = now
+    })
+
+    const presentTypes = new Set(cluster.map(s => s.type))
+    const match = findMatch(presentTypes)
+
+    if (!match) {
+      anyCustom = true
+
+      return
+    }
+
+    if (discoveredIds.has(match.id)) {
+      anyKnown = true
+      showToast(match.name)
+    } else {
+      discoveredIds.add(match.id)
+      anyNew = true
+      showToast(`✦ ${match.name}!`)
+    }
+  })
+
+  // groups are formed in place above (mutating groupId/printedAt), so the
+  // only structural change needed is dropping the swept singles - already-
+  // printed stickers were never touched and keep their original position
+  stickers = stickers.filter(s => !sweptIds.has(s.id))
+  selectedId = null
+
+  if (anyNew) {
+    playDiscovery()
+    mascotExcited()
+  } else if (anyKnown) {
+    playPlace()
+    mascotExcited()
+  } else if (anyCustom) {
+    playDrop()
+  }
+  if (anySwept) playDelete()
+
+  if (anyNew) {
+    updateDiscoveryCount()
+    renderCollectionList()
+  }
 }
 
-function placeRaw(p: Placed): void {
+function placeRaw(p: Placed, now: number): void {
   ctx.save()
-  ctx.translate(p.x, p.y)
+  ctx.translate(p.x, p.y + printFlourish(p, now))
   ctx.rotate(p.rotation)
   ctx.scale(p.flip ? -p.scale : p.scale, p.scale)
   COMPONENTS[p.type](ctx, p.color)
@@ -128,8 +213,8 @@ function placeRaw(p: Placed): void {
 // each sticker gets its own clean self-contained black outline, at a
 // constant screen width regardless of that sticker's own scale (same
 // reasoning as the shared margin below)
-function drawPlaced(p: Placed): void {
-  drawOutlined(ctx, () => placeRaw(p), OUTLINE_WIDTH / p.scale)
+function drawPlaced(p: Placed, now: number): void {
+  drawOutlined(ctx, () => placeRaw(p, now), OUTLINE_WIDTH / p.scale)
 }
 
 // effects draw in the sticker's own local space so they move/scale with it,
@@ -140,7 +225,7 @@ function placeEffect(p: Placed, now: number): void {
   if (p.effect === 'none') return
 
   ctx.save()
-  ctx.translate(p.x, p.y)
+  ctx.translate(p.x, p.y + printFlourish(p, now))
   ctx.rotate(p.rotation)
   ctx.scale(p.scale, p.scale)
   drawEffect(ctx, p.effect, now)
@@ -148,8 +233,6 @@ function placeEffect(p: Placed, now: number): void {
 }
 
 function render(now: number): void {
-  checkDiscoveries()
-
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
   ctx.fillStyle = CANVAS_BG
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -167,9 +250,9 @@ function render(now: number): void {
   // can use its own scale, but same-color overlapping fills still merge
   // seamlessly into one shared margin regardless of that grouping
   stickers.forEach((p) => {
-    stampSilhouette(ctx, () => placeRaw(p), SHARED_OUTLINE_COLOR, SHARED_OUTLINE_WIDTH / p.scale)
+    stampSilhouette(ctx, () => placeRaw(p, now), SHARED_OUTLINE_COLOR, SHARED_OUTLINE_WIDTH / p.scale)
   })
-  stickers.forEach(drawPlaced)
+  stickers.forEach(p => drawPlaced(p, now))
 
   stickers.forEach((p) => {
     if (p.effect !== 'none' && !isBehindEffect(p.effect)) placeEffect(p, now)
@@ -194,8 +277,20 @@ function render(now: number): void {
     ctx.restore()
   }
 
+  // printing is meant to be final - a printed sticker can still be moved
+  // or deleted as a whole (see pointermove/keydown/toolbar 'del' below),
+  // but not edited piece by piece. Want it editable? Don't print it yet.
+  // Printed and want something different? Rebuild, don't reach back in.
+  // The toolbar itself only cares whether *anything* is selected (delete
+  // needs to stay reachable even on a printed group); the finer edit/no-edit
+  // line is drawn per-button below via the .edit-only buttons' disabled state.
+  const editable = !!sel && sel.groupId === null
+
   toolbarEl.classList.toggle('active', !!sel)
-  effectsEl.classList.toggle('active', !!sel)
+  toolbarEl.querySelectorAll('.edit-only').forEach((el) => {
+    (el as HTMLButtonElement).disabled = !editable
+  })
+  effectsEl.classList.toggle('active', editable)
 
   // reflect the selected sticker's own color/effect, not just whatever was
   // last clicked - otherwise switching between stickers with different
@@ -286,9 +381,26 @@ canvas.addEventListener('pointermove', (e) => {
   if (!sel) return
 
   const { x, y } = pointerPos(e)
+  const targetX = Math.min(CANVAS_WIDTH, Math.max(0, x - dragOffset.x))
+  const targetY = Math.min(CANVAS_HEIGHT, Math.max(0, y - dragOffset.y))
 
-  sel.x = Math.min(CANVAS_WIDTH, Math.max(0, x - dragOffset.x))
-  sel.y = Math.min(CANVAS_HEIGHT, Math.max(0, y - dragOffset.y))
+  if (sel.groupId === null) {
+    sel.x = targetX
+    sel.y = targetY
+  } else {
+    // printed stickers move together as one unit - only the dragged one is
+    // clamped to the canvas edge, the rest just carry the same delta, so
+    // the group doesn't visually break apart if one member hits a wall
+    const dx = targetX - sel.x
+    const dy = targetY - sel.y
+
+    stickers.forEach((s) => {
+      if (s.groupId === sel.groupId) {
+        s.x += dx
+        s.y += dy
+      }
+    })
+  }
 })
 
 canvas.addEventListener('pointerup', () => {
@@ -307,6 +419,8 @@ function addSticker(type: ComponentType): void {
     color: currentColor,
     flip: false,
     effect: 'none',
+    groupId: null,
+    printedAt: null,
   }
 
   nextId += 1
@@ -358,7 +472,9 @@ PALETTE.forEach((color) => {
 
     const sel = selected()
 
-    if (sel) sel.color = color
+    // printed stickers aren't editable - see the `editable` comment in
+    // render(). currentColor still updates above, for whatever's placed next
+    if (sel && sel.groupId === null) sel.color = color
   })
   colorsEl.appendChild(btn)
 })
@@ -376,7 +492,7 @@ EFFECT_ORDER.forEach((effect) => {
 
     const sel = selected()
 
-    if (sel) sel.effect = effect
+    if (sel && sel.groupId === null) sel.effect = effect
   })
   effectsEl.appendChild(btn)
 })
@@ -390,6 +506,9 @@ toolbarEl.addEventListener('click', (e) => {
   const sel = selected()
 
   if (!act || !sel) return
+  // the .edit-only buttons already disable themselves for a printed
+  // selection, but guard the logic too rather than relying only on that
+  if (act !== 'del' && sel.groupId !== null) return
 
   if (act === 'rotL') sel.rotation -= ROTATE_STEP
   if (act === 'rotR') sel.rotation += ROTATE_STEP
@@ -407,14 +526,20 @@ toolbarEl.addEventListener('click', (e) => {
     }
   }
   if (act === 'dup') {
-    const clone: Placed = { ...sel, id: nextId, x: sel.x + 12, y: sel.y + 12 }
+    // a duplicate starts as its own fresh, ungrouped sticker rather than
+    // silently joining whatever group the original was printed into
+    const clone: Placed = {
+      ...sel, id: nextId, x: sel.x + 12, y: sel.y + 12, groupId: null, printedAt: null,
+    }
 
     nextId += 1
     stickers.push(clone)
     selectedId = clone.id
   }
   if (act === 'del') {
-    stickers = stickers.filter(s => s.id !== sel.id)
+    // deleting one member of a printed group removes the whole group -
+    // it's one sticker now
+    stickers = stickers.filter(s => (sel.groupId === null ? s.id !== sel.id : s.groupId !== sel.groupId))
     selectedId = null
   }
 
@@ -436,14 +561,33 @@ window.addEventListener('keydown', (e) => {
   const nudge = 6
 
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    stickers = stickers.filter(s => s.id !== sel.id)
+    stickers = stickers.filter(s => (sel.groupId === null ? s.id !== sel.id : s.groupId !== sel.groupId))
     selectedId = null
     playDelete()
+
+    return
   }
-  if (e.key === 'ArrowLeft') sel.x -= nudge
-  if (e.key === 'ArrowRight') sel.x += nudge
-  if (e.key === 'ArrowUp') sel.y -= nudge
-  if (e.key === 'ArrowDown') sel.y += nudge
+
+  let dx = 0
+  let dy = 0
+
+  if (e.key === 'ArrowLeft') dx = -nudge
+  if (e.key === 'ArrowRight') dx = nudge
+  if (e.key === 'ArrowUp') dy = -nudge
+  if (e.key === 'ArrowDown') dy = nudge
+  if (dx === 0 && dy === 0) return
+
+  if (sel.groupId === null) {
+    sel.x += dx
+    sel.y += dy
+  } else {
+    stickers.forEach((s) => {
+      if (s.groupId === sel.groupId) {
+        s.x += dx
+        s.y += dy
+      }
+    })
+  }
 })
 
 collectionBtn.addEventListener('click', () => {
@@ -456,6 +600,8 @@ collectionCloseBtn.addEventListener('click', () => {
   playClick()
   collectionEl.classList.add('hidden')
 })
+
+printBtn.addEventListener('click', handlePrint)
 
 updateDiscoveryCount()
 renderCollectionList()

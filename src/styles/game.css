@@ -17,6 +17,48 @@ body {
   gap: 10px;
 }
 
+#stage {
+  position: relative;
+}
+
+/* its own little home, same panel/border language as the main canvas.
+   Always absolutely positioned (in both narrow and wide layouts below) so
+   it never affects #stage's own box - #stage's size stays exactly the
+   canvas's size either way, which is what keeps the canvas centered under
+   the toolbar/tray below it instead of drifting off that shared center
+   whenever the mascot's spot changes.
+
+   Narrow viewports (default): floats above the canvas rather than beside
+   it, and only a little of it sits above the canvas's top border (peeking
+   over the edge) rather than floating entirely above it - needing that
+   much less headroom is what keeps it from getting clipped by the
+   viewport on shorter screens. */
+#mascot {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96px;
+  height: 96px;
+  background: $panel;
+  border: 3px solid $ink;
+  border-radius: 16px;
+  pointer-events: none;
+}
+
+/* wide viewports: room to give it a proper spot beside the canvas instead.
+   560px of canvas+gap+mascot centered still needs ~106px clear to the left
+   of the canvas's own left edge, so this only kicks in once the viewport
+   is wide enough that margin actually exists (406px canvas box centered
+   leaves (viewport-406)/2 on each side; solving for >=106 gives ~618px). */
+@media (min-width: 640px) {
+  #mascot {
+    top: 0;
+    left: -106px;
+    transform: none;
+  }
+}
+
 #c {
   background: $panel;
   border: 3px solid $ink;

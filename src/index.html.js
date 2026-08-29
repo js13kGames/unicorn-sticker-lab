@@ -7,7 +7,10 @@ export const htmlTemplate = `
 </head>
 <body>
     <div id="app">
-        <canvas id="c"></canvas>
+        <div id="stage">
+            <canvas id="mascot" title="Your studio mascot"></canvas>
+            <canvas id="c"></canvas>
+        </div>
         <div id="toolbar">
             <button data-act="rotL" title="Rotate left">&#8634;</button>
             <button data-act="rotR" title="Rotate right">&#8635;</button>

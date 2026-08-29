@@ -5,6 +5,7 @@ import {
 import {
   playPlace, playDelete, playClick, playDrop,
 } from './audio'
+import { renderMascot, mascotExcited } from './mascot'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -24,6 +25,13 @@ const canvas = document.getElementById('c') as HTMLCanvasElement
 canvas.width = CANVAS_WIDTH
 canvas.height = CANVAS_HEIGHT
 const ctx = canvas.getContext('2d') as CanvasRenderingContext2D
+
+const MASCOT_SIZE = 96
+const mascotCanvas = document.getElementById('mascot') as HTMLCanvasElement
+
+mascotCanvas.width = MASCOT_SIZE
+mascotCanvas.height = MASCOT_SIZE
+const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
 const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
@@ -206,6 +214,7 @@ function addSticker(type: ComponentType): void {
   stickers.push(p)
   selectedId = p.id
   playPlace()
+  mascotExcited()
   render()
 }
 
@@ -298,9 +307,14 @@ toolbarEl.addEventListener('click', (e) => {
     selectedId = null
   }
 
-  if (act === 'del') playDelete()
-  else if (act === 'dup') playPlace()
-  else playClick()
+  if (act === 'del') {
+    playDelete()
+  } else if (act === 'dup') {
+    playPlace()
+    mascotExcited()
+  } else {
+    playClick()
+  }
 
   render()
 })
@@ -326,3 +340,15 @@ window.addEventListener('keydown', (e) => {
 })
 
 render()
+
+// the mascot idles continuously even when nothing else changes, so it gets
+// its own animation loop instead of only redrawing on state changes
+function mascotLoop(now: number): void {
+  const sel = selected()
+  const lean = sel ? Math.max(-1, Math.min(1, (sel.x - CANVAS_WIDTH / 2) / (CANVAS_WIDTH / 2))) : 0
+
+  renderMascot(mascotCtx, MASCOT_SIZE, MASCOT_SIZE, now, lean)
+  requestAnimationFrame(mascotLoop)
+}
+
+requestAnimationFrame(mascotLoop)

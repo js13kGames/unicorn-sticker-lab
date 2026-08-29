@@ -1,7 +1,5 @@
 import { COMPONENTS, drawOutlined, stampSilhouette } from './components'
-import {
-  OUTLINE_WIDTH, SHARED_OUTLINE_COLOR, PRINTED_OUTLINE_WIDTH,
-} from './constants'
+import { SHARED_OUTLINE_COLOR } from './constants'
 import type { Placed } from './types'
 
 export interface Snapshot {
@@ -87,14 +85,22 @@ export function renderSnapshot(ctx: CanvasRenderingContext2D, pieces: Placed[], 
     ctx.restore()
   }
 
+  // Both outline widths below are constant-on-screen-pixels regardless of
+  // scale, same reasoning as the main render() (decision #3) - but sized
+  // relative to `size` rather than reused from OUTLINE_WIDTH/
+  // PRINTED_OUTLINE_WIDTH directly. Those constants render as a fixed 8px/
+  // 26px on the 400px main canvas; applied unscaled to a 32-64px
+  // thumbnail they'd swallow the whole sticker. (`stampSilhouette`'s width
+  // param becomes 2x the actual on-screen stroke - see blob() in
+  // components.ts - so target/(2*scale) here, not target/scale.)
   pieces.forEach((p) => {
     const scale = p.scale * fit
 
-    stampSilhouette(ctx, placeOf(p, scale), SHARED_OUTLINE_COLOR, PRINTED_OUTLINE_WIDTH / scale)
+    stampSilhouette(ctx, placeOf(p, scale), SHARED_OUTLINE_COLOR, (size * 0.09) / (2 * scale))
   })
   pieces.forEach((p) => {
     const scale = p.scale * fit
 
-    drawOutlined(ctx, placeOf(p, scale), OUTLINE_WIDTH / scale)
+    drawOutlined(ctx, placeOf(p, scale), (size * 0.05) / (2 * scale))
   })
 }

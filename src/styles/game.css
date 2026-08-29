@@ -410,11 +410,16 @@ body {
   gap: 8px;
 }
 
+/* same purple as the real canvas (CANVAS_BG), not the panel's own white -
+   the snapshot's shared outline is white, same as on the real canvas, and
+   was invisible against a white background behind it */
 .thumb {
   display: block;
   width: 32px;
   height: 32px;
   flex-shrink: 0;
+  background: $canvasBg;
+  border-radius: 6px;
 }
 
 #albumGrid {
@@ -437,10 +442,15 @@ body {
   background: $bg;
 }
 
+/* same reasoning as .thumb above - $bg (the card's own background) is
+   close enough to white that the snapshot's white shared outline was
+   barely visible against it */
 .album-item canvas {
   display: block;
   width: 64px;
   height: 64px;
+  background: $canvasBg;
+  border-radius: 6px;
 }
 
 .album-item span {

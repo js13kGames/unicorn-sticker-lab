@@ -7,9 +7,14 @@ export const htmlTemplate = `
 </head>
 <body>
     <div id="app">
+        <div id="header">
+            <span id="discoveryCount"></span>
+            <button id="collectionBtn">Collection</button>
+        </div>
         <div id="stage">
             <canvas id="mascot" title="Your studio mascot"></canvas>
             <canvas id="c"></canvas>
+            <div id="toast"></div>
         </div>
         <div id="toolbar">
             <button data-act="rotL" title="Rotate left">&#8634;</button>
@@ -25,6 +30,13 @@ export const htmlTemplate = `
         <div id="colors"></div>
         <div id="effects"></div>
         <div id="tray"></div>
+        <div id="collection" class="hidden">
+            <div id="collectionPanel">
+                <button id="collectionClose" title="Close">&#10005;</button>
+                <h1>Collection</h1>
+                <div id="collectionList"></div>
+            </div>
+        </div>
     </div>
 </body>
 </html>

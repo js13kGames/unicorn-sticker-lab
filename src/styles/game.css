@@ -17,8 +17,47 @@ body {
   gap: 6px;
 }
 
+#header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+#header button {
+  border: 2px solid $ink;
+  background: $panel;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
 #stage {
   position: relative;
+}
+
+/* not part of the normal layout flow (like the mascot) - a temporary
+   message shouldn't push anything else around while it's shown */
+#toast {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: $panel;
+  border: 2px solid $ink;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: bold;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  white-space: nowrap;
+}
+
+#toast.show {
+  opacity: 1;
 }
 
 /* its own little home, same panel/border language as the main canvas.
@@ -157,4 +196,64 @@ body {
   flex-wrap: wrap;
   max-width: 400px;
   justify-content: center;
+}
+
+/* an overlay, not a stacked row - a hidden panel shouldn't affect layout
+   height at all, and a shown one shouldn't either (same reasoning as the
+   mascot/toast above: anything that toggles visibility stays out of flow) */
+#collection {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 43, 43, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+#collection.hidden {
+  display: none;
+}
+
+#collectionPanel {
+  position: relative;
+  background: $panel;
+  border: 3px solid $ink;
+  border-radius: 16px;
+  padding: 16px;
+  width: 300px;
+  max-width: 85vw;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+#collectionPanel h1 {
+  font-size: 16px;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+#collectionClose {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 2px solid $ink;
+  background: $panel;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+
+.discovery-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+}
+
+.discovery-row.found {
+  font-weight: bold;
 }

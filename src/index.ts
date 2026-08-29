@@ -3,10 +3,11 @@ import {
   COMPONENTS, TRAY_ORDER, stampSilhouette, drawOutlined,
 } from './components'
 import {
-  playPlace, playDelete, playClick, playDrop,
+  playPlace, playDelete, playClick, playDrop, playDiscovery,
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
 import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
+import { RECIPES, findNewDiscovery } from './recipes'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -45,6 +46,12 @@ const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
 const effectsEl = document.getElementById('effects') as HTMLDivElement
 const toolbarEl = document.getElementById('toolbar') as HTMLDivElement
+const discoveryCountEl = document.getElementById('discoveryCount') as HTMLSpanElement
+const toastEl = document.getElementById('toast') as HTMLDivElement
+const collectionBtn = document.getElementById('collectionBtn') as HTMLButtonElement
+const collectionEl = document.getElementById('collection') as HTMLDivElement
+const collectionCloseBtn = document.getElementById('collectionClose') as HTMLButtonElement
+const collectionListEl = document.getElementById('collectionList') as HTMLDivElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
 // not just its raw path geometry: the farthest points (balloon string tip,
@@ -61,9 +68,52 @@ let nextId = 1
 let selectedId: number | null = null
 let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
+const discoveredIds = new Set<string>()
+let toastTimer: number | undefined
 
 function selected(): Placed | undefined {
   return stickers.find(s => s.id === selectedId)
+}
+
+function showToast(text: string): void {
+  toastEl.textContent = text
+  toastEl.classList.add('show')
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
+}
+
+function renderCollectionList(): void {
+  collectionListEl.innerHTML = ''
+  RECIPES.forEach((r) => {
+    const found = discoveredIds.has(r.id)
+    const row = document.createElement('div')
+
+    row.className = found ? 'discovery-row found' : 'discovery-row'
+    row.textContent = found ? r.name : '???'
+    if (!found) row.title = r.hint
+    collectionListEl.appendChild(row)
+  })
+}
+
+function updateDiscoveryCount(): void {
+  discoveryCountEl.textContent = `✦ ${discoveredIds.size}/${RECIPES.length}`
+}
+
+// checked every frame (cheap: a handful of stickers against ten recipes) so
+// a discovery fires the moment both ingredients are on the canvas together,
+// whether that's from placing a new one or just dragging pieces into place
+function checkDiscoveries(): void {
+  const presentTypes = new Set(stickers.map(s => s.type))
+  const found = findNewDiscovery(presentTypes, discoveredIds)
+
+  if (!found) return
+
+  discoveredIds.add(found.id)
+  playDiscovery()
+  mascotExcited()
+  showToast(`✦ ${found.name}!`)
+  updateDiscoveryCount()
+  renderCollectionList()
 }
 
 function placeRaw(p: Placed): void {
@@ -98,6 +148,8 @@ function placeEffect(p: Placed, now: number): void {
 }
 
 function render(now: number): void {
+  checkDiscoveries()
+
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
   ctx.fillStyle = CANVAS_BG
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
@@ -393,6 +445,20 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowUp') sel.y -= nudge
   if (e.key === 'ArrowDown') sel.y += nudge
 })
+
+collectionBtn.addEventListener('click', () => {
+  playClick()
+  renderCollectionList()
+  collectionEl.classList.remove('hidden')
+})
+
+collectionCloseBtn.addEventListener('click', () => {
+  playClick()
+  collectionEl.classList.add('hidden')
+})
+
+updateDiscoveryCount()
+renderCollectionList()
 
 // stickers render continuously (not just on state changes) since effects
 // (sparkle/glow/hearts) animate on their own even when nothing else does

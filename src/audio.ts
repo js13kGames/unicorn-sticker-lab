@@ -7,26 +7,40 @@ function getAudioContext(): AudioContext {
   return audioCtx
 }
 
-// A short pitch-ramped blip with a quick exponential decay - the building
-// block for every sound effect below. Ramping the frequency up reads as a
-// "pop", ramping it down reads as a "descending" cue, flat reads as a click.
-function blip(freqFrom: number, freqTo: number, duration: number, type: OscillatorType, gain: number): void {
+// A short pitch-ramped tone with a quick exponential decay, starting `delay`
+// seconds from now - the building block for every sound effect below.
+// Ramping the frequency up reads as a "pop", ramping it down reads as a
+// "descending" cue, flat reads as a click. Scheduled via the audio clock
+// (not setTimeout) so sequences like playDiscovery's arpeggio stay
+// sample-accurate instead of drifting with JS timer jitter.
+function note(
+  freqFrom: number,
+  freqTo: number,
+  duration: number,
+  type: OscillatorType,
+  gain: number,
+  delay = 0,
+): void {
   const ctx = getAudioContext()
   const osc = ctx.createOscillator()
   const amp = ctx.createGain()
-  const now = ctx.currentTime
+  const start = ctx.currentTime + delay
 
   osc.type = type
-  osc.frequency.setValueAtTime(freqFrom, now)
-  osc.frequency.exponentialRampToValueAtTime(freqTo, now + duration)
+  osc.frequency.setValueAtTime(freqFrom, start)
+  osc.frequency.exponentialRampToValueAtTime(freqTo, start + duration)
 
-  amp.gain.setValueAtTime(gain, now)
-  amp.gain.exponentialRampToValueAtTime(0.001, now + duration)
+  amp.gain.setValueAtTime(gain, start)
+  amp.gain.exponentialRampToValueAtTime(0.001, start + duration)
 
   osc.connect(amp)
   amp.connect(ctx.destination)
-  osc.start(now)
-  osc.stop(now + duration)
+  osc.start(start)
+  osc.stop(start + duration)
+}
+
+function blip(freqFrom: number, freqTo: number, duration: number, type: OscillatorType, gain: number): void {
+  note(freqFrom, freqTo, duration, type, gain)
 }
 
 export function playPlace(): void {
@@ -45,4 +59,13 @@ export function playClick(): void {
 
 export function playDrop(): void {
   blip(160, 80, 0.07, 'sine', 0.12)
+}
+
+// A little ascending arpeggio for finding a new discovery - bigger and
+// brighter than the other feedback sounds, since this is the game's main
+// reward moment.
+export function playDiscovery(): void {
+  note(523, 523, 0.12, 'sine', 0.14, 0) // C5
+  note(659, 659, 0.12, 'sine', 0.14, 0.1) // E5
+  note(784, 900, 0.22, 'sine', 0.18, 0.2) // G5, ringing up slightly
 }

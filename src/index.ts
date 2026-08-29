@@ -382,7 +382,14 @@ function render(now: number): void {
 
   const sel = selected()
 
-  if (sel) {
+  // printed stickers skip the ring entirely - it's centered on whichever
+  // single piece was clicked, not the printed group's own merged shape, so
+  // it never lined up with what's actually selected once pieces are fused
+  // into one finished sticker (which already gets its own persistent cue,
+  // the thicker shared outline above). Printed stickers also aren't being
+  // carefully arranged piece-by-piece any more, so the "click here to keep
+  // editing" affordance the ring exists for doesn't apply to them
+  if (sel && sel.groupId === null) {
     ctx.save()
     ctx.setLineDash([6, 5])
     ctx.beginPath()

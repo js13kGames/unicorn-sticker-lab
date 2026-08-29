@@ -11,6 +11,7 @@ import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import { unlockedTypes, nextTier } from './progression'
+import { saveGame, loadGame } from './save'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -75,8 +76,23 @@ let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
-let unlocked = unlockedTypes(0)
 const trayButtons = new Map<ComponentType, HTMLButtonElement>()
+
+// restore before anything below reads discoveredIds/stickers, so the tier
+// unlocked from a prior visit and any in-progress canvas are there from the
+// very first render rather than popping in after
+const saved = loadGame()
+
+if (saved) {
+  const { discoveredIds: savedIds, stickers: savedStickers } = saved
+
+  savedIds.forEach(id => discoveredIds.add(id))
+  stickers = savedStickers
+  nextId = stickers.reduce((max, s) => Math.max(max, s.id + 1), nextId)
+  nextGroupId = stickers.reduce((max, s) => Math.max(max, (s.groupId ?? 0) + 1), nextGroupId)
+}
+
+let unlocked = unlockedTypes(discoveredIds.size)
 
 // the toast says *what* was discovered but not *where* - a burst pinpoints
 // it, especially useful when several stickers are on the canvas at once.
@@ -257,6 +273,12 @@ function handlePrint(): void {
     renderCollectionList()
     checkUnlocks()
   }
+
+  // printing is the single biggest state change (new groups, swept
+  // singles, sometimes a new discovery/unlock) - always worth a save on
+  // its own, rather than only relying on the pagehide/visibilitychange save
+  // below to catch it whenever the tab eventually closes
+  saveGame(discoveredIds, stickers)
 }
 
 function placeRaw(p: Placed, now: number): void {
@@ -660,6 +682,15 @@ window.addEventListener('keydown', (e) => {
       }
     })
   }
+})
+
+// catches everything between prints (moving/recoloring/adding/deleting
+// unprinted stickers) that handlePrint's own save doesn't see. pagehide
+// covers normal close/reload/navigation; visibilitychange->hidden also
+// covers mobile backgrounding, where pagehide can fire late or not at all
+window.addEventListener('pagehide', () => saveGame(discoveredIds, stickers))
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveGame(discoveredIds, stickers)
 })
 
 collectionBtn.addEventListener('click', () => {

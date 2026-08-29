@@ -1,5 +1,7 @@
-import { COMPONENTS, drawOutlined } from './components'
-import { OUTLINE_WIDTH } from './constants'
+import { COMPONENTS, drawOutlined, stampSilhouette } from './components'
+import {
+  OUTLINE_WIDTH, SHARED_OUTLINE_COLOR, PRINTED_OUTLINE_WIDTH,
+} from './constants'
 import type { Placed } from './types'
 
 export interface Snapshot {
@@ -57,10 +59,15 @@ function boundingBox(pieces: Placed[]): { minX: number; minY: number; maxX: numb
 // Renders a snapshot's pieces into a size*size square at the canvas's
 // current origin - used for both the Album grid and Collection's
 // per-recipe thumbnails. Deliberately simpler than the main render(): no
-// effects, no shared cluster margin, no flourishes, just each piece's own
-// outline+fill, reframed to fit the *cluster's* own bounding box rather
-// than assuming it's still centered on the original 400x400 canvas the
-// way it was at print time.
+// effects, no flourishes, reframed to fit the *cluster's* own bounding box
+// rather than assuming it's still centered on the original 400x400 canvas
+// the way it was at print time. It does keep both outlines from the main
+// render, though (load-bearing decision #2) - a snapshot is always of an
+// already-printed cluster (single stray stickers get swept, never
+// snapshotted), so leaving out the shared white margin behind it made
+// overlapping pieces read as each keeping its own separate black outline
+// instead of merging into one sticker, the same visual bug the shared
+// margin exists to prevent everywhere else.
 export function renderSnapshot(ctx: CanvasRenderingContext2D, pieces: Placed[], size: number): void {
   ctx.clearRect(0, 0, size, size)
   if (pieces.length === 0) return
@@ -71,17 +78,23 @@ export function renderSnapshot(ctx: CanvasRenderingContext2D, pieces: Placed[], 
   const cx = (box.minX + box.maxX) / 2
   const cy = (box.minY + box.maxY) / 2
 
+  const placeOf = (p: Placed, scale: number) => (): void => {
+    ctx.save()
+    ctx.translate(size / 2 + (p.x - cx) * fit, size / 2 + (p.y - cy) * fit)
+    ctx.rotate(p.rotation)
+    ctx.scale(p.flip ? -scale : scale, scale)
+    COMPONENTS[p.type](ctx, p.color)
+    ctx.restore()
+  }
+
   pieces.forEach((p) => {
     const scale = p.scale * fit
-    const place = (): void => {
-      ctx.save()
-      ctx.translate(size / 2 + (p.x - cx) * fit, size / 2 + (p.y - cy) * fit)
-      ctx.rotate(p.rotation)
-      ctx.scale(p.flip ? -scale : scale, scale)
-      COMPONENTS[p.type](ctx, p.color)
-      ctx.restore()
-    }
 
-    drawOutlined(ctx, place, OUTLINE_WIDTH / scale)
+    stampSilhouette(ctx, placeOf(p, scale), SHARED_OUTLINE_COLOR, PRINTED_OUTLINE_WIDTH / scale)
+  })
+  pieces.forEach((p) => {
+    const scale = p.scale * fit
+
+    drawOutlined(ctx, placeOf(p, scale), OUTLINE_WIDTH / scale)
   })
 }

@@ -96,7 +96,7 @@ export function renderSnapshot(ctx: CanvasRenderingContext2D, pieces: Placed[], 
   pieces.forEach((p) => {
     const scale = p.scale * fit
 
-    stampSilhouette(ctx, placeOf(p, scale), SHARED_OUTLINE_COLOR, (size * 0.09) / (2 * scale))
+    stampSilhouette(ctx, placeOf(p, scale), SHARED_OUTLINE_COLOR, (size * 0.16) / (2 * scale))
   })
   pieces.forEach((p) => {
     const scale = p.scale * fit

@@ -187,7 +187,7 @@ function showToast(text: string): void {
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
 }
 
-const THUMB_SIZE = 32
+const THUMB_SIZE = 40
 
 // GDD SS16: "each discovered entry stores the *actual instance* that
 // triggered it... as its representative image, not stock art" (Placement

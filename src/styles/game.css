@@ -357,6 +357,13 @@ body {
   overflow-y: auto;
 }
 
+/* a bit roomier than #albumPanel's shared default above - bigger
+   thumbnails (see .thumb) plus each row's name/hint text wants more
+   breathing room than the album grid's own square cards do */
+#collectionPanel {
+  width: 340px;
+}
+
 #collectionPanel h1,
 #albumPanel h1 {
   font-size: 16px;
@@ -415,8 +422,8 @@ body {
    was invisible against a white background behind it */
 .thumb {
   display: block;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
   background: $canvasBg;
   border-radius: 6px;

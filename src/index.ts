@@ -118,9 +118,32 @@ function withinRadius(s: Placed, x: number, y: number): boolean {
   return Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS * s.scale
 }
 
+// Off-DOM canvas used only to test whether a specific sticker's own drawn
+// pixels (not its loose bounding circle) cover a given point.
+const hitCanvas = document.createElement('canvas')
+
+hitCanvas.width = CANVAS_WIDTH
+hitCanvas.height = CANVAS_HEIGHT
+const hitCtx = hitCanvas.getContext('2d') as CanvasRenderingContext2D
+
+function coversPixel(s: Placed, x: number, y: number): boolean {
+  hitCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+  hitCtx.save()
+  hitCtx.translate(s.x, s.y)
+  hitCtx.rotate(s.rotation)
+  hitCtx.scale(s.flip ? -s.scale : s.scale, s.scale)
+  COMPONENTS[s.type](hitCtx, s.color)
+  hitCtx.restore()
+
+  return hitCtx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data[3] > 0
+}
+
+// Picking a *new* sticker only counts a click on its actual visible pixels -
+// the loose bounding circle is reserved for keeping the already-selected
+// sticker grabbable (see pointerdown below), not for first selecting one.
 function hitTest(x: number, y: number): Placed | undefined {
   for (let i = stickers.length - 1; i >= 0; i -= 1) {
-    if (withinRadius(stickers[i], x, y)) return stickers[i]
+    if (coversPixel(stickers[i], x, y)) return stickers[i]
   }
 
   return undefined

@@ -328,7 +328,8 @@ body {
 /* an overlay, not a stacked row - a hidden panel shouldn't affect layout
    height at all, and a shown one shouldn't either (same reasoning as the
    mascot/toast above: anything that toggles visibility stays out of flow) */
-#collection {
+#collection,
+#album {
   position: fixed;
   inset: 0;
   background: rgba(43, 43, 43, 0.5);
@@ -338,11 +339,13 @@ body {
   z-index: 10;
 }
 
-#collection.hidden {
+#collection.hidden,
+#album.hidden {
   display: none;
 }
 
-#collectionPanel {
+#collectionPanel,
+#albumPanel {
   position: relative;
   background: $panel;
   border: 3px solid $ink;
@@ -354,13 +357,15 @@ body {
   overflow-y: auto;
 }
 
-#collectionPanel h1 {
+#collectionPanel h1,
+#albumPanel h1 {
   font-size: 16px;
   margin: 0 0 8px;
   text-align: center;
 }
 
-#collectionClose {
+#collectionClose,
+#albumClose {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -393,6 +398,65 @@ body {
   font-style: italic;
   opacity: 0.65;
   text-align: right;
+}
+
+/* wraps a found row's thumbnail + name as one unit, so .discovery-row's
+   justify-content:space-between (tuned for the ???/hint pair above) still
+   just pins this whole thing to the left instead of spreading a thumbnail
+   and a name apart to opposite edges */
+.discovery-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thumb {
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+#albumGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+/* newest print first (see the Album section of index.ts) - no scores or
+   labels beyond the name, since GDD SS14's "Failure" outcome is still a
+   real sticker and this journal is for every print, not just wins */
+.album-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 2px solid $ink;
+  border-radius: 10px;
+  padding: 4px;
+  background: $bg;
+}
+
+.album-item canvas {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+.album-item span {
+  font-size: 10px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 64px;
+}
+
+#albumEmpty {
+  font-size: 13px;
+  text-align: center;
+  opacity: 0.7;
+  padding: 12px 0;
 }
 
 /* sits below the list, not beside #collectionClose up top - deliberately

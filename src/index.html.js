@@ -10,6 +10,7 @@ export const htmlTemplate = `
         <div id="header">
             <span id="discoveryCount"></span>
             <button id="collectionBtn">Collection</button>
+            <button id="albumBtn">Album</button>
         </div>
         <div id="request"></div>
         <div id="stage">
@@ -41,6 +42,13 @@ export const htmlTemplate = `
                 <h1>Collection</h1>
                 <div id="collectionList"></div>
                 <button id="resetBtn" title="Erase every discovered recipe and unlocked piece">Reset Progress</button>
+            </div>
+        </div>
+        <div id="album" class="hidden">
+            <div id="albumPanel">
+                <button id="albumClose" title="Close">&#10005;</button>
+                <h1>Album</h1>
+                <div id="albumGrid"></div>
             </div>
         </div>
     </div>

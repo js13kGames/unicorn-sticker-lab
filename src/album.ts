@@ -1,0 +1,87 @@
+import { COMPONENTS, drawOutlined } from './components'
+import { OUTLINE_WIDTH } from './constants'
+import type { Placed } from './types'
+
+export interface Snapshot {
+  // the cluster's own pieces at print time, in their original canvas
+  // coordinates - re-rendered on demand rather than storing pixels, per
+  // the Placement & Composition Ideas doc's "cheap to build" framing (a
+  // sticker is already a small data structure)
+  pieces: Placed[]
+  // which recipe this print satisfied, or null for a valid-but-unnamed
+  // custom creation (still a real sticker, still worth keeping - GDD §14's
+  // "Failure" outcome is explicitly still a sticker, not a wasted print)
+  recipeId: string | null
+  at: number
+}
+
+// keeps the running "every print" journal from growing without bound over
+// a long session - curation (favorite/delete/etc) was left as an open
+// question in the doc; a simple cap answers it for now without needing a
+// whole UI for it
+const ALBUM_CAP = 40
+
+// appends and caps in one step - oldest entries fall off the front once
+// the journal is full, so `album` always stays newest-last
+export function addToAlbum(album: Snapshot[], pieces: Placed[], recipeId: string | null): Snapshot[] {
+  const next = [...album, { pieces, recipeId, at: Date.now() }]
+
+  return next.length > ALBUM_CAP ? next.slice(next.length - ALBUM_CAP) : next
+}
+
+// a rough half-extent for framing purposes only - doesn't need to match
+// any single component's real geometry exactly, just be generous enough
+// that nothing gets cropped
+const FRAME_PAD = 50
+
+function boundingBox(pieces: Placed[]): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  pieces.forEach((p) => {
+    const r = FRAME_PAD * p.scale
+
+    minX = Math.min(minX, p.x - r)
+    minY = Math.min(minY, p.y - r)
+    maxX = Math.max(maxX, p.x + r)
+    maxY = Math.max(maxY, p.y + r)
+  })
+
+  return {
+    minX, minY, maxX, maxY,
+  }
+}
+
+// Renders a snapshot's pieces into a size*size square at the canvas's
+// current origin - used for both the Album grid and Collection's
+// per-recipe thumbnails. Deliberately simpler than the main render(): no
+// effects, no shared cluster margin, no flourishes, just each piece's own
+// outline+fill, reframed to fit the *cluster's* own bounding box rather
+// than assuming it's still centered on the original 400x400 canvas the
+// way it was at print time.
+export function renderSnapshot(ctx: CanvasRenderingContext2D, pieces: Placed[], size: number): void {
+  ctx.clearRect(0, 0, size, size)
+  if (pieces.length === 0) return
+
+  const box = boundingBox(pieces)
+  const span = Math.max(box.maxX - box.minX, box.maxY - box.minY, 1)
+  const fit = (size * 0.85) / span
+  const cx = (box.minX + box.maxX) / 2
+  const cy = (box.minY + box.maxY) / 2
+
+  pieces.forEach((p) => {
+    const scale = p.scale * fit
+    const place = (): void => {
+      ctx.save()
+      ctx.translate(size / 2 + (p.x - cx) * fit, size / 2 + (p.y - cy) * fit)
+      ctx.rotate(p.rotation)
+      ctx.scale(p.flip ? -scale : scale, scale)
+      COMPONENTS[p.type](ctx, p.color)
+      ctx.restore()
+    }
+
+    drawOutlined(ctx, place, OUTLINE_WIDTH / scale)
+  })
+}

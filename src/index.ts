@@ -14,6 +14,8 @@ import { drawLandingBurst, LANDING_BURST_MS } from './landingBurst'
 import { unlockedTypes, nextTier } from './progression'
 import { saveGame, loadGame } from './save'
 import { pickRequest } from './requests'
+import { addToAlbum, renderSnapshot } from './album'
+import type { Snapshot } from './album'
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -64,6 +66,10 @@ const collectionListEl = document.getElementById('collectionList') as HTMLDivEle
 const printBtn = document.getElementById('printBtn') as HTMLButtonElement
 const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement
 const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement
+const albumBtn = document.getElementById('albumBtn') as HTMLButtonElement
+const albumEl = document.getElementById('album') as HTMLDivElement
+const albumCloseBtn = document.getElementById('albumClose') as HTMLButtonElement
+const albumGridEl = document.getElementById('albumGrid') as HTMLDivElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
 // not just its raw path geometry: the farthest points (balloon string tip,
@@ -84,6 +90,13 @@ let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
 const trayButtons = new Map<ComponentType, HTMLButtonElement>()
+// every print, discovery or not - see album.ts. Newest-last; the Album
+// view itself reverses this for display
+let album: Snapshot[] = []
+// recipe id -> the pieces of whichever print is currently that recipe's
+// Collection thumbnail - starts as the first print that discovered it,
+// replaceable later (see handlePrint's anyKnown branch)
+let recipeShots: Record<string, Placed[]> = {}
 
 // restore before anything below reads discoveredIds/stickers, so the tier
 // unlocked from a prior visit and any in-progress canvas are there from the
@@ -91,10 +104,14 @@ const trayButtons = new Map<ComponentType, HTMLButtonElement>()
 const saved = loadGame()
 
 if (saved) {
-  const { discoveredIds: savedIds, stickers: savedStickers } = saved
+  const {
+    discoveredIds: savedIds, stickers: savedStickers, album: savedAlbum, recipeShots: savedShots,
+  } = saved
 
   savedIds.forEach(id => discoveredIds.add(id))
   stickers = savedStickers
+  album = savedAlbum
+  recipeShots = savedShots
   nextId = stickers.reduce((max, s) => Math.max(max, s.id + 1), nextId)
   nextGroupId = stickers.reduce((max, s) => Math.max(max, (s.groupId ?? 0) + 1), nextGroupId)
 }
@@ -170,6 +187,41 @@ function showToast(text: string): void {
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), 2200)
 }
 
+const THUMB_SIZE = 32
+
+// GDD SS16: "each discovered entry stores the *actual instance* that
+// triggered it... as its representative image, not stock art" (Placement
+// & Composition Ideas doc). A single wrapper (not two separate row
+// children) so .discovery-row's justify-content:space-between still just
+// pins it to the left, the same as the plain-text version used to.
+function discoveredLabel(recipeId: string, name: string): HTMLSpanElement {
+  const wrap = document.createElement('span')
+
+  wrap.className = 'discovery-main'
+
+  const pieces = recipeShots[recipeId]
+
+  // falls back to no thumbnail if recipeShots somehow lacks an entry -
+  // shouldn't happen once discovered, but an old save predating this
+  // feature could have a discoveredIds entry with no matching shot
+  if (pieces) {
+    const thumb = document.createElement('canvas')
+
+    thumb.width = THUMB_SIZE
+    thumb.height = THUMB_SIZE
+    thumb.className = 'thumb'
+    renderSnapshot(thumb.getContext('2d') as CanvasRenderingContext2D, pieces, THUMB_SIZE)
+    wrap.appendChild(thumb)
+  }
+
+  const label = document.createElement('span')
+
+  label.textContent = name
+  wrap.appendChild(label)
+
+  return wrap
+}
+
 function renderCollectionList(): void {
   collectionListEl.innerHTML = ''
   RECIPES.forEach((r) => {
@@ -179,7 +231,7 @@ function renderCollectionList(): void {
     row.className = found ? 'discovery-row found' : 'discovery-row'
 
     if (found) {
-      row.textContent = r.name
+      row.appendChild(discoveredLabel(r.id, r.name))
     } else {
       // the hint used to live in a `title` tooltip - mouse-only, and
       // nothing on the row hinted that hovering would reveal anything.
@@ -200,6 +252,46 @@ function renderCollectionList(): void {
 
 function updateDiscoveryCount(): void {
   discoveryCountEl.textContent = `✦ ${discoveredIds.size}/${RECIPES.length}`
+}
+
+const ALBUM_THUMB_SIZE = 64
+
+// every print, discovery or not (GDD SS14's "Failure" outcome is still a
+// real sticker) - re-rendered here from `album` rather than kept as a
+// live DOM list, same "recompute on open" approach as Collection. Newest
+// first, so the thing you just printed is the first thing you see.
+function renderAlbumGrid(): void {
+  albumGridEl.innerHTML = ''
+
+  if (album.length === 0) {
+    const empty = document.createElement('div')
+
+    empty.id = 'albumEmpty'
+    empty.textContent = 'Print something to start your album.'
+    albumGridEl.appendChild(empty)
+
+    return
+  }
+
+  const newestFirst = [...album].reverse()
+
+  newestFirst.forEach((snap) => {
+    const item = document.createElement('div')
+    const thumb = document.createElement('canvas')
+    const label = document.createElement('span')
+
+    item.className = 'album-item'
+    thumb.width = ALBUM_THUMB_SIZE
+    thumb.height = ALBUM_THUMB_SIZE
+    renderSnapshot(thumb.getContext('2d') as CanvasRenderingContext2D, snap.pieces, ALBUM_THUMB_SIZE)
+
+    const recipe = snap.recipeId === null ? null : RECIPES.find(r => r.id === snap.recipeId)
+
+    label.textContent = recipe ? recipe.name : 'Custom'
+    item.appendChild(thumb)
+    item.appendChild(label)
+    albumGridEl.appendChild(item)
+  })
 }
 
 // GDD SS18's "request", kept proactive by construction - it's always on
@@ -288,13 +380,18 @@ function handleResetCollection(): void {
   if (!window.confirm('Reset all discovered recipes and unlocked pieces? This cannot be undone.')) return
 
   discoveredIds.clear()
+  // recipeShots are meaningless without their discovery - the album
+  // journal itself is untouched, since it's a personal creation history
+  // independent of discovery progress (see album.ts), not part of what
+  // "progress" means here
+  recipeShots = {}
   unlocked = unlockedTypes(0)
   refreshTray()
   updateDiscoveryCount()
   renderCollectionList()
   updateRequest()
   showToast('Collection reset')
-  saveGame(discoveredIds, stickers)
+  saveGame(discoveredIds, stickers, album, recipeShots)
 }
 
 // The manual "did I make something?" check (like Little Inferno's burn
@@ -340,19 +437,36 @@ function handlePrint(): void {
       s.printedAt = now
     })
 
+    // a shallow-copied snapshot, not the live objects - `cluster`'s pieces
+    // keep getting dragged/moved as part of their group afterward, and the
+    // album/Collection thumbnail should freeze the moment of printing, not
+    // silently follow wherever the group ends up later
+    const snapshot = cluster.map(s => ({ ...s }))
     const match = findMatch(cluster)
 
     if (!match) {
       anyCustom = true
+      // still a real sticker (GDD SS14's "Failure" outcome is explicitly
+      // still a valid one) - the album journal is for every print, not
+      // just the ones that named something
+      album = addToAlbum(album, snapshot, null)
 
       return
     }
 
+    album = addToAlbum(album, snapshot, match.id)
+
     if (discoveredIds.has(match.id)) {
       anyKnown = true
       showToast(match.name)
+      // purely the player's own taste call, never forced - only offered
+      // when there's an existing shot that could actually be replaced
+      if (window.confirm(`Use this as your picture for ${match.name}?`)) {
+        recipeShots[match.id] = snapshot
+      }
     } else {
       discoveredIds.add(match.id)
+      recipeShots[match.id] = snapshot
       anyNew = true
       showToast(`✦ ${match.name}!`)
       discoveryBursts.push({
@@ -380,9 +494,13 @@ function handlePrint(): void {
   }
   if (anySwept) playDelete()
 
+  // anyKnown can still change what renderCollectionList shows (a replaced
+  // representative shot, see the confirm() above), even with no new
+  // discovery to react to
+  if (anyNew || anyKnown) renderCollectionList()
+
   if (anyNew) {
     updateDiscoveryCount()
-    renderCollectionList()
     checkUnlocks()
     updateRequest()
   }
@@ -391,7 +509,7 @@ function handlePrint(): void {
   // singles, sometimes a new discovery/unlock) - always worth a save on
   // its own, rather than only relying on the pagehide/visibilitychange save
   // below to catch it whenever the tab eventually closes
-  saveGame(discoveredIds, stickers)
+  saveGame(discoveredIds, stickers, album, recipeShots)
 }
 
 // wipes the whole canvas at once (printed groups included) - unlike
@@ -409,7 +527,7 @@ function handleClearCanvas(): void {
   selectedId = null
   playDelete()
   showToast('Canvas cleared')
-  saveGame(discoveredIds, stickers)
+  saveGame(discoveredIds, stickers, album, recipeShots)
 }
 
 function placeRaw(p: Placed, now: number): void {
@@ -886,9 +1004,9 @@ window.addEventListener('keydown', (e) => {
 // unprinted stickers) that handlePrint's own save doesn't see. pagehide
 // covers normal close/reload/navigation; visibilitychange->hidden also
 // covers mobile backgrounding, where pagehide can fire late or not at all
-window.addEventListener('pagehide', () => saveGame(discoveredIds, stickers))
+window.addEventListener('pagehide', () => saveGame(discoveredIds, stickers, album, recipeShots))
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) saveGame(discoveredIds, stickers)
+  if (document.hidden) saveGame(discoveredIds, stickers, album, recipeShots)
 })
 
 collectionBtn.addEventListener('click', () => {
@@ -900,6 +1018,17 @@ collectionBtn.addEventListener('click', () => {
 collectionCloseBtn.addEventListener('click', () => {
   playClick()
   collectionEl.classList.add('hidden')
+})
+
+albumBtn.addEventListener('click', () => {
+  playClick()
+  renderAlbumGrid()
+  albumEl.classList.remove('hidden')
+})
+
+albumCloseBtn.addEventListener('click', () => {
+  playClick()
+  albumEl.classList.add('hidden')
 })
 
 printBtn.addEventListener('click', handlePrint)

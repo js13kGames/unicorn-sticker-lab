@@ -25,13 +25,41 @@ const MELODY = [
   587, 0, 523, 0, 440, 0, 523, 0,
 ]
 
+// the same scale, deduped, for picking a random passing note into a rest
+// (see scheduleBar) - reused rather than a second hand-written list, so the
+// two can't ever drift out of the same key
+const PENTATONIC = [...new Set(MELODY.filter(f => f))]
+
 let musicOn = false
 let timer: number | undefined
 
+// per-note volume wobble so the loop doesn't sound perfectly mechanical -
+// the same "humanize" trick real sequencers use, kept small enough to stay
+// under the GDD's own "without becoming annoying" bar
+function jitterGain(base: number): number {
+  return base * (0.85 + Math.random() * 0.3)
+}
+
 function scheduleBar(bar: number): void {
-  note(BASS[bar], BASS[bar], STEPS_PER_BAR * STEP, 'triangle', 0.06, 0)
+  note(BASS[bar], BASS[bar], STEPS_PER_BAR * STEP, 'triangle', jitterGain(0.06), 0)
+
   MELODY.forEach((freq, step) => {
-    if (freq) note(freq, freq, STEP * 0.9, 'sine', 0.05, step * STEP)
+    const delay = step * STEP + (Math.random() - 0.5) * 0.02
+
+    if (freq) {
+      note(freq, freq, STEP * 0.9, 'sine', jitterGain(0.05), delay)
+      // an occasional soft octave-up sparkle - variety without ever
+      // leaving the chord/scale safety net, since it's the same pitch
+      // class as the note it rides on, just doubled a register up
+      if (Math.random() < 0.18) note(freq * 2, freq * 2, STEP * 0.5, 'sine', jitterGain(0.02), delay)
+    } else if (Math.random() < 0.12) {
+      // occasionally fill a rest with a quiet passing tone instead of
+      // always the exact same silence there - picked from the same
+      // pentatonic scale, so it's still guaranteed consonant
+      const passing = PENTATONIC[Math.floor(Math.random() * PENTATONIC.length)]
+
+      note(passing, passing, STEP * 0.6, 'sine', jitterGain(0.025), delay)
+    }
   })
 }
 

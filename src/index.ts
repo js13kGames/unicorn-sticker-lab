@@ -61,6 +61,8 @@ const collectionEl = document.getElementById('collection') as HTMLDivElement
 const collectionCloseBtn = document.getElementById('collectionClose') as HTMLButtonElement
 const collectionListEl = document.getElementById('collectionList') as HTMLDivElement
 const printBtn = document.getElementById('printBtn') as HTMLButtonElement
+const clearBtn = document.getElementById('clearBtn') as HTMLButtonElement
+const resetBtn = document.getElementById('resetBtn') as HTMLButtonElement
 
 // Must be big enough to enclose every component's actual rendered pixels,
 // not just its raw path geometry: the farthest points (balloon string tip,
@@ -236,6 +238,27 @@ function checkUnlocks(): void {
   refreshTray()
 }
 
+// erases every discovered recipe and, as a direct consequence, every
+// unlocked component (unlocked is always derived from discoveredIds.size -
+// see progression.ts - so there's no separate unlock state to reset here).
+// Confirmed first since there's no undo and this is real progress, not
+// just the current canvas arrangement (see handleClearCanvas above for
+// that distinction). Doesn't touch stickers - a fresh start on discoveries
+// shouldn't silently delete whatever's still being built.
+function handleResetCollection(): void {
+  if (discoveredIds.size === 0) return
+  if (!window.confirm('Reset all discovered recipes and unlocked pieces? This cannot be undone.')) return
+
+  discoveredIds.clear()
+  unlocked = unlockedTypes(0)
+  refreshTray()
+  updateDiscoveryCount()
+  renderCollectionList()
+  updateRequest()
+  showToast('Collection reset')
+  saveGame(discoveredIds, stickers)
+}
+
 // The manual "did I make something?" check (like Little Inferno's burn
 // trigger), not a continuous one - an earlier version checked every frame,
 // but that meant discoveries fired passively just from having ingredients
@@ -330,6 +353,24 @@ function handlePrint(): void {
   // singles, sometimes a new discovery/unlock) - always worth a save on
   // its own, rather than only relying on the pagehide/visibilitychange save
   // below to catch it whenever the tab eventually closes
+  saveGame(discoveredIds, stickers)
+}
+
+// wipes the whole canvas at once (printed groups included) - unlike
+// delete, which only ever touches the current selection, this needs its
+// own confirmation since there's no undo and a full board can represent a
+// lot of arranging. Doesn't touch discoveredIds - nothing about the
+// player's actual progress lives on the canvas itself (no album/gallery
+// exists yet - see the Placement & Composition Ideas doc), so clearing it
+// only costs the current arrangement, not anything already discovered.
+function handleClearCanvas(): void {
+  if (stickers.length === 0) return
+  if (!window.confirm('Clear the whole canvas?')) return
+
+  stickers = []
+  selectedId = null
+  playDelete()
+  showToast('Canvas cleared')
   saveGame(discoveredIds, stickers)
 }
 
@@ -771,6 +812,8 @@ collectionCloseBtn.addEventListener('click', () => {
 })
 
 printBtn.addEventListener('click', handlePrint)
+clearBtn.addEventListener('click', handleClearCanvas)
+resetBtn.addEventListener('click', handleResetCollection)
 
 updateDiscoveryCount()
 renderCollectionList()

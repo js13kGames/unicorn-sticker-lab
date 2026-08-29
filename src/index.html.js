@@ -17,7 +17,10 @@ export const htmlTemplate = `
             <canvas id="c"></canvas>
             <div id="toast"></div>
         </div>
-        <button id="printBtn" title="Print your sticker - combines overlapping pieces, clears the rest">&#128424; Print</button>
+        <div id="printRow">
+            <button id="printBtn" title="Print your sticker - combines overlapping pieces, clears the rest">&#128424; Print</button>
+            <button id="clearBtn" title="Clear the whole canvas">&#128465; Clear</button>
+        </div>
         <div id="toolbar">
             <button class="edit-only" data-act="rotL" title="Rotate left">&#8634;</button>
             <button class="edit-only" data-act="rotR" title="Rotate right">&#8635;</button>
@@ -37,6 +40,7 @@ export const htmlTemplate = `
                 <button id="collectionClose" title="Close">&#10005;</button>
                 <h1>Collection</h1>
                 <div id="collectionList"></div>
+                <button id="resetBtn" title="Erase every discovered recipe and unlocked piece">Reset Progress</button>
             </div>
         </div>
     </div>

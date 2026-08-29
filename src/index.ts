@@ -12,6 +12,7 @@ import {
   SHARED_OUTLINE_COLOR,
   SHARED_OUTLINE_WIDTH,
   OUTLINE_COLOR,
+  OUTLINE_WIDTH,
 } from './constants'
 import type { ComponentType, Placed } from './types'
 
@@ -54,9 +55,11 @@ function placeRaw(p: Placed): void {
   ctx.restore()
 }
 
-// each sticker gets its own clean self-contained black outline
+// each sticker gets its own clean self-contained black outline, at a
+// constant screen width regardless of that sticker's own scale (same
+// reasoning as the shared margin below)
 function drawPlaced(p: Placed): void {
-  drawOutlined(ctx, () => placeRaw(p))
+  drawOutlined(ctx, () => placeRaw(p), OUTLINE_WIDTH / p.scale)
 }
 
 function render(): void {
@@ -66,13 +69,15 @@ function render(): void {
 
   // a thick white margin around the whole combined silhouette first, so
   // layered stickers read as one sticker, then each piece drawn on top
-  // with its own individual outline
-  stampSilhouette(
-    ctx,
-    () => stickers.forEach(placeRaw),
-    SHARED_OUTLINE_COLOR,
-    SHARED_OUTLINE_WIDTH,
-  )
+  // with its own individual outline. lineWidth is set inside each sticker's
+  // own scale transform, so it has to be divided by that sticker's scale
+  // here or the margin would get thicker/thinner as stickers are resized -
+  // called once per sticker rather than once for the whole array so each
+  // can use its own scale, but same-color overlapping fills still merge
+  // seamlessly into one shared margin regardless of that grouping
+  stickers.forEach((p) => {
+    stampSilhouette(ctx, () => placeRaw(p), SHARED_OUTLINE_COLOR, SHARED_OUTLINE_WIDTH / p.scale)
+  })
   stickers.forEach(drawPlaced)
 
   const sel = selected()

@@ -3,6 +3,9 @@ import {
   COMPONENTS, TRAY_ORDER, stampSilhouette, drawOutlined,
 } from './components'
 import {
+  playPlace, playDelete, playClick, playDrop,
+} from './audio'
+import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   CANVAS_BG,
@@ -183,6 +186,7 @@ canvas.addEventListener('pointermove', (e) => {
 })
 
 canvas.addEventListener('pointerup', () => {
+  if (dragOffset) playDrop()
   dragOffset = null
 })
 
@@ -201,6 +205,7 @@ function addSticker(type: ComponentType): void {
   nextId += 1
   stickers.push(p)
   selectedId = p.id
+  playPlace()
   render()
 }
 
@@ -243,6 +248,7 @@ PALETTE.forEach((color) => {
     currentColor = color
     colorsEl.querySelectorAll('.swatch').forEach(el => el.classList.remove('active'))
     btn.classList.add('active')
+    playClick()
 
     const sel = selected()
 
@@ -292,6 +298,10 @@ toolbarEl.addEventListener('click', (e) => {
     selectedId = null
   }
 
+  if (act === 'del') playDelete()
+  else if (act === 'dup') playPlace()
+  else playClick()
+
   render()
 })
 
@@ -305,6 +315,7 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Delete' || e.key === 'Backspace') {
     stickers = stickers.filter(s => s.id !== sel.id)
     selectedId = null
+    playDelete()
   }
   if (e.key === 'ArrowLeft') sel.x -= nudge
   if (e.key === 'ArrowRight') sel.x += nudge

@@ -8,8 +8,9 @@ import {
 import { renderMascot, mascotExcited } from './mascot'
 import { EFFECT_ORDER, isBehindEffect, drawEffect } from './effects'
 import { RECIPES, findMatch } from './recipes'
-import { clusterByOverlap } from './cluster'
+import { clusterByOverlap, circlesTouch } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
+import { drawLandingBurst, LANDING_BURST_MS } from './landingBurst'
 import { unlockedTypes, nextTier } from './progression'
 import { saveGame, loadGame } from './save'
 import { pickRequest } from './requests'
@@ -107,6 +108,12 @@ let unlocked = unlockedTypes(discoveredIds.size)
 interface Burst { x: number; y: number; at: number }
 let discoveryBursts: Burst[] = []
 
+// same shape as a discovery Burst plus the sticker's own color, since a
+// landing burst is single-colored rather than confetti's fixed rainbow
+// (see landingBurst.ts)
+interface LandingBurstState extends Burst { color: string }
+let landingBursts: LandingBurstState[] = []
+
 const PRINT_FLOURISH_MS = 500
 
 // a brief rise-then-settle applied only visually (not to the sticker's real
@@ -119,6 +126,37 @@ function printFlourish(p: Placed, now: number): number {
   if (t < 0 || t > PRINT_FLOURISH_MS) return 0
 
   return -Math.sin((t / PRINT_FLOURISH_MS) * Math.PI) * 14
+}
+
+const SPAWN_FLOURISH_MS = 320
+
+// a back-out ease: overshoots past 1 before settling there, giving a
+// spring-like bounce - starts at 0 (t=0) and ends exactly at 1 (t=1), per
+// https://easings.net/#easeOutBack. Reused for the landing scale multiplier
+// below (see spawnFlourish) rather than a linear or simple sine ease,
+// since the Placement & Composition Ideas doc specifically wants an
+// overshoot-then-settle "squash and stretch" feel, not a smooth glide.
+function easeOutBack(t: number): number {
+  const c1 = 1.70158
+  const c3 = c1 + 1
+
+  return 1 + c3 * ((t - 1) ** 3) + c1 * ((t - 1) ** 2)
+}
+
+// multiplies a freshly-placed sticker's own scale, briefly, right after
+// spawn - starts near zero (a "slice" arriving mid-flight rather than a
+// flat teleport) and overshoots past 1 before settling, like it dropped
+// onto the canvas with a little weight. Purely visual, same convention as
+// printFlourish above: never touches the sticker's real `scale`.
+function spawnFlourish(p: Placed, now: number): number {
+  if (p.spawnedAt === null) return 1
+
+  const t = now - p.spawnedAt
+
+  if (t < 0) return 1
+  if (t > SPAWN_FLOURISH_MS) return 1
+
+  return Math.max(0, easeOutBack(t / SPAWN_FLOURISH_MS))
 }
 
 function selected(): Placed | undefined {
@@ -375,10 +413,12 @@ function handleClearCanvas(): void {
 }
 
 function placeRaw(p: Placed, now: number): void {
+  const scale = p.scale * spawnFlourish(p, now)
+
   ctx.save()
   ctx.translate(p.x, p.y + printFlourish(p, now))
   ctx.rotate(p.rotation)
-  ctx.scale(p.flip ? -p.scale : p.scale, p.scale)
+  ctx.scale(p.flip ? -scale : scale, scale)
   COMPONENTS[p.type](ctx, p.color)
   ctx.restore()
 }
@@ -443,6 +483,14 @@ function render(now: number): void {
     ctx.save()
     ctx.translate(b.x, b.y)
     drawConfettiBurst(ctx, now - b.at)
+    ctx.restore()
+  })
+
+  landingBursts = landingBursts.filter(b => now - b.at < LANDING_BURST_MS)
+  landingBursts.forEach((b) => {
+    ctx.save()
+    ctx.translate(b.x, b.y)
+    drawLandingBurst(ctx, now - b.at, b.color)
     ctx.restore()
   })
 
@@ -603,28 +651,71 @@ canvas.addEventListener('pointerup', () => {
   dragOffset = null
 })
 
+// how far a freshly-placed piece can land from dead-center
+const SPAWN_SPREAD = 70
+// keeps the spawn point (not just the sticker's visual center) far enough
+// from the canvas edge that even a piece with a far-reaching extremity
+// (balloon string, unicorn horn - see HIT_RADIUS's own comment above)
+// doesn't spawn already clipped against the border
+const SPAWN_MARGIN = HIT_RADIUS
+
+// Placement & Composition Ideas doc: landing at a randomized spot near
+// center, nudged away from whatever's already there, means two freshly
+// placed pieces no longer perfectly overlap by default - composing a
+// cluster now takes an actual drag-together step, without adding any
+// friction to the click-to-place action itself. Not true collision
+// avoidance (the doc's own call, given the canvas is small and pieces
+// usually get dragged afterward anyway) - just a few randomized tries,
+// keeping whichever one lands clearest.
+function pickSpawnPosition(): { x: number; y: number } {
+  let best = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2 }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const candidate = {
+      x: Math.min(CANVAS_WIDTH - SPAWN_MARGIN, Math.max(SPAWN_MARGIN,
+        CANVAS_WIDTH / 2 + (Math.random() * 2 - 1) * SPAWN_SPREAD)),
+      y: Math.min(CANVAS_HEIGHT - SPAWN_MARGIN, Math.max(SPAWN_MARGIN,
+        CANVAS_HEIGHT / 2 + (Math.random() * 2 - 1) * SPAWN_SPREAD)),
+    }
+
+    best = candidate
+    if (!stickers.some(s => circlesTouch(candidate.x, candidate.y, 1, s.x, s.y, s.scale))) break
+  }
+
+  return best
+}
+
 function addSticker(type: ComponentType): void {
   // tray buttons already disable themselves for locked types (see
   // refreshTray), but guard the logic too rather than relying only on that
   if (!unlocked.has(type)) return
 
+  const { x, y } = pickSpawnPosition()
+  const now = performance.now()
+
   const p: Placed = {
     id: nextId,
     type,
-    x: CANVAS_WIDTH / 2,
-    y: CANVAS_HEIGHT / 2,
+    x,
+    y,
     scale: 1,
-    rotation: 0,
+    // a slight random tilt on landing reads as it having actually dropped
+    // there, rather than always arriving perfectly upright
+    rotation: (Math.random() * 2 - 1) * 0.15,
     color: currentColor,
     flip: false,
     effect: 'none',
     groupId: null,
     printedAt: null,
+    spawnedAt: now,
   }
 
   nextId += 1
   stickers.push(p)
   selectedId = p.id
+  landingBursts.push({
+    x, y, color: currentColor, at: now,
+  })
   playPlace()
   mascotExcited()
 }
@@ -730,7 +821,7 @@ toolbarEl.addEventListener('click', (e) => {
     // a duplicate starts as its own fresh, ungrouped sticker rather than
     // silently joining whatever group the original was printed into
     const clone: Placed = {
-      ...sel, id: nextId, x: sel.x + 12, y: sel.y + 12, groupId: null, printedAt: null,
+      ...sel, id: nextId, x: sel.x + 12, y: sel.y + 12, groupId: null, printedAt: null, spawnedAt: null,
     }
 
     nextId += 1

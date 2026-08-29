@@ -5,12 +5,22 @@ import type { Placed } from './types'
 // "touch" when they'd actually look combined, not just nearby.
 const CLUSTER_RADIUS = 40
 
-function overlaps(a: Placed, b: Placed): boolean {
-  const dx = a.x - b.x
-  const dy = a.y - b.y
-  const reach = CLUSTER_RADIUS * a.scale + CLUSTER_RADIUS * b.scale
+// Exported so anything else that needs "would these two circles read as
+// touching" (currently just index.ts's avoidant spawn placement) uses the
+// exact same definition Print itself clusters by, rather than a second
+// radius that could drift out of sync with it.
+export function circlesTouch(
+  ax: number, ay: number, ascale: number, bx: number, by: number, bscale: number,
+): boolean {
+  const dx = ax - bx
+  const dy = ay - by
+  const reach = CLUSTER_RADIUS * ascale + CLUSTER_RADIUS * bscale
 
   return Math.sqrt(dx * dx + dy * dy) < reach
+}
+
+function overlaps(a: Placed, b: Placed): boolean {
+  return circlesTouch(a.x, a.y, a.scale, b.x, b.y, b.scale)
 }
 
 // Groups stickers into overlap-connected clusters (transitively touching

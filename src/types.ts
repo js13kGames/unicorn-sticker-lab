@@ -24,4 +24,8 @@ export interface Placed {
   // unit from then on, and printedAt drives the brief "float up" flourish
   groupId: number | null
   printedAt: number | null
+  // drives the brief landing bounce right after a fresh spawn (see
+  // spawnFlourish in index.ts) - null for a duplicate or a restored save,
+  // same "no flourish unless freshly set" convention as printedAt
+  spawnedAt: number | null
 }

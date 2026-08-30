@@ -22,8 +22,8 @@ export const htmlTemplate = `
             <div id="toast"></div>
         </div>
         <div id="printRow">
-            <button id="printBtn" title="Print your sticker - combines overlapping pieces, clears the rest"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 1h8v4H4zM2 5h12a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2v-3H4v3H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 11h8v4H4z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg> Print</button>
-            <button id="clearBtn" title="Clear the whole canvas"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M3 4h10M6 4V2h4v2M5 4l1 10h4l1-10" fill="none" stroke="currentColor" stroke-width="1.3"/></svg> Clear</button>
+            <button id="printBtn" title="Print your sticker - combines overlapping pieces, clears the rest">Sticker it!</button>
+            <button id="clearBtn" title="Clear the whole canvas">Bye!</button>
         </div>
         <div id="toolbar">
             <button class="edit-only" data-act="rotL" title="Rotate left">&#8634;</button>

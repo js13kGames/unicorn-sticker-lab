@@ -12,7 +12,9 @@ import { RECIPES, findMatch } from './recipes'
 import { clusterByOverlap, circlesTouch } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import { drawLandingBurst, LANDING_BURST_MS } from './landingBurst'
-import { unlockedTypes, nextTier, maxUnlockedRecipeSize } from './progression'
+import {
+  unlockedTypes, nextTier, maxUnlockedRecipeSize, unlockedEffects, nextEffectTier,
+} from './progression'
 import { saveGame, loadGame } from './save'
 import { pickRequest } from './requests'
 import { addToAlbum, renderSnapshot } from './album'
@@ -105,6 +107,7 @@ let dragOffset: { x: number; y: number } | null = null
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
 const trayButtons = new Map<ComponentType, HTMLButtonElement>()
+const effectButtons = new Map<EffectType, HTMLButtonElement>()
 // every print, discovery or not - see album.ts. Newest-last; the Album
 // view itself reverses this for display
 let album: Snapshot[] = []
@@ -132,6 +135,7 @@ if (saved) {
 }
 
 let unlocked = unlockedTypes(discoveredIds.size)
+let unlockedFx = unlockedEffects(discoveredIds.size)
 let maxRecipeSize = maxUnlockedRecipeSize(discoveredIds.size)
 
 // the toast says *what* was discovered but not *where* - a burst pinpoints
@@ -374,7 +378,7 @@ function renderAlbumGrid(): void {
 // screen, never behind a hover or a click into the Collection panel (see
 // pickRequest for why a fresh one doesn't need to be stored anywhere)
 function updateRequest(): void {
-  const request = pickRequest(discoveredIds, unlocked, maxUnlockedRecipeSize(discoveredIds.size))
+  const request = pickRequest(discoveredIds, unlocked, maxUnlockedRecipeSize(discoveredIds.size), unlockedFx)
 
   requestEl.textContent = request ? `✦ Try: ${request.hint}` : "✦ You've discovered every sticker!"
 }
@@ -421,6 +425,23 @@ function refreshTray(): void {
   })
 }
 
+// same shape as refreshTray above, but for the effect row (EFFECT_TIERS in
+// progression.ts) - a locked effect can't be picked and reads as locked at
+// a glance, same "N more discoveries" wording
+function refreshEffects(): void {
+  const next = nextEffectTier(discoveredIds.size)
+  const remaining = next ? next.unlockAt - discoveredIds.size : 0
+
+  effectButtons.forEach((btn, effect) => {
+    const isUnlocked = unlockedFx.has(effect)
+
+    btn.disabled = !isUnlocked
+    btn.title = isUnlocked ?
+      effect :
+      `Locked - ${remaining} more discover${remaining === 1 ? 'y' : 'ies'} to unlock`
+  })
+}
+
 // called after every discovery-count change, not just on unlock, so the
 // "N more to unlock" hint on still-locked pieces stays current. Detects a
 // *new* tier unlock by comparing set sizes (grows only when a threshold is
@@ -449,6 +470,28 @@ function checkUnlocks(): void {
     }, 2300)
   }
   refreshTray()
+}
+
+// same shape as checkUnlocks above, but for EFFECT_TIERS - no tray icon to
+// reuse for the toast (an effect isn't a component), so it just names
+// itself in the text instead
+function checkEffectUnlocks(): void {
+  const next = unlockedEffects(discoveredIds.size)
+
+  if (next.size > unlockedFx.size) {
+    const added = EFFECT_ORDER.find(e => next.has(e) && !unlockedFx.has(e))
+
+    unlockedFx = next
+    scatterBursts(UNLOCK_BURST_COUNT, performance.now())
+    window.setTimeout(() => {
+      const name = added ? added[0].toUpperCase() + added.slice(1) : ''
+
+      showToast(`✦ New effect unlocked: ${name}!`)
+      playUnlock()
+      mascotExcited()
+    }, 2300)
+  }
+  refreshEffects()
 }
 
 // same "detect a newly-crossed threshold, delay the fanfare" shape as
@@ -487,8 +530,10 @@ async function handleResetCollection(): Promise<void> {
   // "progress" means here
   recipeShots = {}
   unlocked = unlockedTypes(0)
+  unlockedFx = unlockedEffects(0)
   maxRecipeSize = maxUnlockedRecipeSize(0)
   refreshTray()
+  refreshEffects()
   updateDiscoveryCount()
   renderCollectionList()
   updateRequest()
@@ -628,6 +673,7 @@ async function handlePrint(): Promise<void> {
   if (anyNew) {
     updateDiscoveryCount()
     checkUnlocks()
+    checkEffectUnlocks()
     checkRecipeSizeUnlock()
     updateRequest()
   }
@@ -668,7 +714,7 @@ async function handleClearCanvas(): Promise<void> {
   stickers = []
   selectedId = null
   playDelete()
-  showToast('Canvas cleared')
+  showToast('✦ Bye bye!')
   saveGame(discoveredIds, stickers, album, recipeShots)
 }
 
@@ -1106,14 +1152,21 @@ EFFECT_ORDER.forEach((effect) => {
   btn.dataset.effect = effect
 
   btn.addEventListener('click', () => {
+    // effect buttons already disable themselves for locked effects (see
+    // refreshEffects), but guard the logic too rather than relying only
+    // on that - same convention addSticker's own unlocked.has(type) guard
+    // uses for the tray
+    if (!unlockedFx.has(effect)) return
     playClick()
 
     const sel = selected()
 
     if (sel && sel.groupId === null) sel.effect = effect
   })
+  effectButtons.set(effect, btn)
   effectsEl.appendChild(btn)
 })
+refreshEffects()
 
 const ROTATE_STEP = Math.PI / 12
 const SCALE_STEP = 0.1

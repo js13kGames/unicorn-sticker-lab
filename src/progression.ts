@@ -1,9 +1,6 @@
-import type { ComponentType } from './types'
+import type { ComponentType, EffectType } from './types'
 
-export interface Tier {
-  types: ComponentType[]
-  unlockAt: number
-}
+export interface Tier<T> { types: T[]; unlockAt: number }
 
 // GDD SS17 wants unlock tiers, but only names 5 of Tier 1's pieces
 // (unicorn/rainbow/star/cloud/heart) - the other 3 built components
@@ -17,33 +14,68 @@ export interface Tier {
 // shape here) meant one bumper reward early on, then nothing at all for
 // the remaining two-thirds of the collection - every recipe past that
 // point was already reachable, so there was no unlock left to build
-// toward. Spacing them out (plus RECIPE_SIZE_TIERS below) turns 2 unlock
-// moments into a steady handful, without adding a single new asset: same
-// 8 components, same 16 recipes, just staggered. Each threshold still
-// leaves a comfortable pool of not-yet-found recipes buildable from the
-// pieces already unlocked (see the recipe-count math in RECIPE_SIZE_TIERS'
-// own comment below), so nobody hits an unlock wall before they're ready.
-export const TIERS: Tier[] = [
+// toward. Spacing them out (plus RECIPE_SIZE_TIERS/EFFECT_TIERS below)
+// turns 2 unlock moments into a steady handful, without adding a single
+// new asset: same 8 components, same 16 recipes, just staggered. Each
+// threshold still leaves a comfortable pool of not-yet-found recipes
+// buildable from the pieces already unlocked (see the recipe-count math
+// in RECIPE_SIZE_TIERS' own comment below), so nobody hits an unlock wall
+// before they're ready.
+export const TIERS: Tier<ComponentType>[] = [
   { types: ['unicorn', 'rainbow', 'star', 'cloud', 'heart'], unlockAt: 0 },
   { types: ['sun'], unlockAt: 2 },
   { types: ['moon'], unlockAt: 4 },
   { types: ['balloon'], unlockAt: 6 },
 ]
 
-export function unlockedTypes(discoveryCount: number): Set<ComponentType> {
-  const set = new Set<ComponentType>()
+// generic across TIERS/EFFECT_TIERS - both are just "a set of things that
+// become available once discoveryCount crosses a threshold"
+function unlockedFrom<T>(tiers: Tier<T>[], discoveryCount: number): Set<T> {
+  const set = new Set<T>()
 
-  TIERS.forEach((t) => {
-    if (discoveryCount >= t.unlockAt) t.types.forEach(c => set.add(c))
+  tiers.forEach((t) => {
+    if (discoveryCount >= t.unlockAt) t.types.forEach(x => set.add(x))
   })
 
   return set
 }
 
 // the next tier still locked, if any - used to word the "N more to unlock"
-// hint on locked tray pieces
-export function nextTier(discoveryCount: number): Tier | undefined {
-  return TIERS.find(t => t.unlockAt > discoveryCount)
+// hint on locked tray pieces/effect buttons
+function tierAfter<T>(tiers: Tier<T>[], discoveryCount: number): Tier<T> | undefined {
+  return tiers.find(t => t.unlockAt > discoveryCount)
+}
+
+export function unlockedTypes(discoveryCount: number): Set<ComponentType> {
+  return unlockedFrom(TIERS, discoveryCount)
+}
+
+export function nextTier(discoveryCount: number): Tier<ComponentType> | undefined {
+  return tierAfter(TIERS, discoveryCount)
+}
+
+// 'none' is always available (unlockAt: 0) since it's not a real effect to
+// unlock, just "no effect chosen." Sparkle lands almost immediately
+// (discovery 1) since Shooting Rainbow - a pair of two Tier-1 starter
+// pieces - already needs it; glow/hearts land later since no recipe
+// currently requires either, so they're free to just be a nice surprise
+// rather than something progression is gated on. Interleaved with
+// TIERS/RECIPE_SIZE_TIERS' own thresholds (2/4/6/9) rather than
+// clustered, for the same "steady handful of unlock moments" reason
+// described above TIERS.
+export const EFFECT_TIERS: Tier<EffectType>[] = [
+  { types: ['none'], unlockAt: 0 },
+  { types: ['sparkle'], unlockAt: 1 },
+  { types: ['glow'], unlockAt: 5 },
+  { types: ['hearts'], unlockAt: 8 },
+]
+
+export function unlockedEffects(discoveryCount: number): Set<EffectType> {
+  return unlockedFrom(EFFECT_TIERS, discoveryCount)
+}
+
+export function nextEffectTier(discoveryCount: number): Tier<EffectType> | undefined {
+  return tierAfter(EFFECT_TIERS, discoveryCount)
 }
 
 export interface RecipeSizeTier { size: number; unlockAt: number }

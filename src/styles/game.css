@@ -314,9 +314,10 @@ body {
   padding: 2px;
 }
 
-/* locked tray pieces read as unavailable, not just unstyled - grayscale
-   plus faded, same disabled language as .edit-only above */
-.tray-btn:disabled {
+/* locked tray pieces/effects read as unavailable, not just unstyled -
+   grayscale plus faded, same disabled language as .edit-only above */
+.tray-btn:disabled,
+.effect-btn:disabled {
   opacity: 0.35;
   filter: grayscale(1);
   cursor: default;

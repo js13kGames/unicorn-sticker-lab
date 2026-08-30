@@ -1,6 +1,6 @@
 import { RECIPES } from './recipes'
 import type { Recipe } from './recipes'
-import type { ComponentType } from './types'
+import type { ComponentType, EffectType } from './types'
 
 // GDD SS18's fuller vision (previously deferred as "a real lift"): a
 // request phrased abstractly enough that several different recipes can
@@ -36,9 +36,17 @@ const CATEGORIES: Category[] = [
 // before once every category is satisfied or none are buildable yet, so
 // something is still shown rather than going empty.
 export function pickRequest(
-  discoveredIds: Set<string>, unlocked: Set<ComponentType>, maxSize: number,
+  discoveredIds: Set<string>, unlocked: Set<ComponentType>, maxSize: number, unlockedEffects: Set<EffectType>,
 ): { hint: string } | undefined {
-  const buildable = (r: Recipe): boolean => r.types.length <= maxSize && r.types.every(t => unlocked.has(t))
+  // a recipe asking for an effect (only `sparkle` today - see
+  // EFFECT_TIERS in progression.ts) isn't buildable until that effect is
+  // too, or its own category ("Make something that sparkles") would get
+  // surfaced before the player can actually select it
+  const buildable = (r: Recipe): boolean => (
+    r.types.length <= maxSize &&
+    r.types.every(t => unlocked.has(t)) &&
+    (!r.effects || r.effects.every(e => unlockedEffects.has(e)))
+  )
 
   const category = CATEGORIES.find(c => (
     !RECIPES.some(r => c.matches(r) && discoveredIds.has(r.id)) &&

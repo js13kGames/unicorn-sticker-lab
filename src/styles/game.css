@@ -41,7 +41,7 @@ body {
   font-size: 13px;
 }
 
-/* dimmed, same disabled/locked language as .tray-btn:disabled elsewhere -
+/* dimmed, same disabled/locked language as .tray-btn.locked elsewhere -
    reads as "off" without needing a second glyph for the muted state */
 #muteBtn.muted {
   opacity: 0.4;
@@ -335,12 +335,13 @@ body {
 }
 
 /* locked tray pieces/effects read as unavailable, not just unstyled -
-   grayscale plus faded, same disabled language as .edit-only above */
-.tray-btn:disabled,
-.effect-btn:disabled {
+   grayscale plus faded, same disabled language as .edit-only above. A
+   class rather than :disabled - these stay clickable on purpose (see
+   refreshTray in index.ts) so a tap can answer with a toast */
+.tray-btn.locked,
+.effect-btn.locked {
   opacity: 0.35;
   filter: grayscale(1);
-  cursor: default;
 }
 
 .tray-btn canvas {

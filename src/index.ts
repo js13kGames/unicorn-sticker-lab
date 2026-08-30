@@ -409,21 +409,32 @@ function positionRequest(): void {
   requestEl.style.top = `${mascotRect.bottom - appRect.top + 10}px`
 }
 
+// shared by refreshTray/refreshEffects (the tooltip text) and addSticker/
+// the effect click handler (a toast, for when there's no hover to show a
+// tooltip at all - see the 'locked' class comment below)
+function lockedHint(tier: { unlockAt: number } | undefined): string {
+  const remaining = tier ? tier.unlockAt - discoveredIds.size : 0
+
+  return `Locked - ${remaining} more discover${remaining === 1 ? 'y' : 'ies'} to unlock`
+}
+
 // reflects the current unlock state onto the already-built tray buttons
 // (they're created once at startup - see TRAY_ORDER.forEach below - and
-// just get disabled/relabeled here, not recreated) so a locked piece can't
-// be dragged in and reads as locked at a glance
+// just get relabeled/restyled here, not recreated) so a locked piece
+// reads as locked at a glance. A CSS class instead of the `disabled`
+// attribute (which this used to just set) - a real disabled button never
+// fires a click at all, so a touch player tapping a locked piece got no
+// feedback whatsoever, only ever explained by a `title` tooltip that
+// touch has no hover to reveal. Left clickable so addSticker's own guard
+// (see below) can answer that tap with a toast instead.
 function refreshTray(): void {
   const next = nextTier(discoveredIds.size)
-  const remaining = next ? next.unlockAt - discoveredIds.size : 0
 
   trayButtons.forEach((btn, type) => {
     const isUnlocked = unlocked.has(type)
 
-    btn.disabled = !isUnlocked
-    btn.title = isUnlocked ?
-      type :
-      `Locked - ${remaining} more discover${remaining === 1 ? 'y' : 'ies'} to unlock`
+    btn.classList.toggle('locked', !isUnlocked)
+    btn.title = isUnlocked ? type : lockedHint(next)
   })
 }
 
@@ -432,15 +443,12 @@ function refreshTray(): void {
 // a glance, same "N more discoveries" wording
 function refreshEffects(): void {
   const next = nextEffectTier(discoveredIds.size)
-  const remaining = next ? next.unlockAt - discoveredIds.size : 0
 
   effectButtons.forEach((btn, effect) => {
     const isUnlocked = unlockedFx.has(effect)
 
-    btn.disabled = !isUnlocked
-    btn.title = isUnlocked ?
-      effect :
-      `Locked - ${remaining} more discover${remaining === 1 ? 'y' : 'ies'} to unlock`
+    btn.classList.toggle('locked', !isUnlocked)
+    btn.title = isUnlocked ? effect : lockedHint(next)
   })
 }
 
@@ -1030,9 +1038,14 @@ function pickSpawnPosition(): { x: number; y: number } {
 }
 
 function addSticker(type: ComponentType): void {
-  // tray buttons already disable themselves for locked types (see
-  // refreshTray), but guard the logic too rather than relying only on that
-  if (!unlocked.has(type)) return
+  // tray buttons stay clickable even while locked (see refreshTray's own
+  // comment on why) - this is the only feedback a touch player tapping a
+  // locked one gets, since there's no hover to reveal its title tooltip
+  if (!unlocked.has(type)) {
+    showToast(lockedHint(nextTier(discoveredIds.size)))
+
+    return
+  }
 
   const { x, y } = pickSpawnPosition()
   const now = performance.now()
@@ -1154,11 +1167,14 @@ EFFECT_ORDER.forEach((effect) => {
   btn.dataset.effect = effect
 
   btn.addEventListener('click', () => {
-    // effect buttons already disable themselves for locked effects (see
-    // refreshEffects), but guard the logic too rather than relying only
-    // on that - same convention addSticker's own unlocked.has(type) guard
-    // uses for the tray
-    if (!unlockedFx.has(effect)) return
+    // effect buttons stay clickable while locked too (see refreshEffects'
+    // own comment on refreshTray, same reasoning) - same
+    // toast-instead-of-silence convention as addSticker's own guard
+    if (!unlockedFx.has(effect)) {
+      showToast(lockedHint(nextEffectTier(discoveredIds.size)))
+
+      return
+    }
     playClick()
 
     const sel = selected()

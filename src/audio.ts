@@ -69,3 +69,14 @@ export function playDiscovery(): void {
   note(659, 659, 0.12, 'sine', 0.14, 0.1) // E5
   note(784, 900, 0.22, 'sine', 0.18, 0.2) // G5, ringing up slightly
 }
+
+// A bigger fanfare for milestones (unlocking new pieces/sizes, finishing
+// the whole collection) - one more note than playDiscovery, reaching a
+// full octave above where that one starts, so a milestone still stands out
+// next to the sound already used for every ordinary recipe find.
+export function playUnlock(): void {
+  note(523, 523, 0.1, 'sine', 0.15, 0) // C5
+  note(659, 659, 0.1, 'sine', 0.15, 0.09) // E5
+  note(784, 784, 0.1, 'sine', 0.15, 0.18) // G5
+  note(1047, 1200, 0.3, 'sine', 0.2, 0.27) // C6, ringing up
+}

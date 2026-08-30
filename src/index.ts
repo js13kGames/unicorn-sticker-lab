@@ -3,7 +3,7 @@ import {
   COMPONENTS, TRAY_ORDER, stampSilhouette, stampFlat, drawOutlined,
 } from './components'
 import {
-  playPlace, playDelete, playClick, playDrop, playDiscovery,
+  playPlace, playDelete, playClick, playDrop, playDiscovery, playUnlock,
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
 import { startMusic, toggleMusic } from './music'
@@ -145,6 +145,17 @@ let discoveryBursts: Burst[] = []
 // recipe gets discovered - more than a single recipe's own one burst, since
 // this moment is meant to read as bigger than an ordinary discovery
 const COMPLETION_BURST_COUNT = 8
+// same idea, smaller: a component/recipe-size unlock previously got no
+// confetti of its own at all (just the toast/sound/mascot below) - a few
+// scattered bursts make it read as a real celebration rather than a plain
+// notification
+const UNLOCK_BURST_COUNT = 3
+
+function scatterBursts(count: number, now: number): void {
+  for (let i = 0; i < count; i += 1) {
+    discoveryBursts.push({ x: Math.random() * CANVAS_WIDTH, y: Math.random() * CANVAS_HEIGHT, at: now })
+  }
+}
 
 // same shape as a discovery Burst plus the sticker's own color, since a
 // landing burst is single-colored rather than confetti's fixed rainbow
@@ -294,7 +305,11 @@ function renderCollectionList(): void {
       const label = document.createElement('span')
       const hint = document.createElement('span')
 
-      label.textContent = '???'
+      // one "???" per ingredient instead of a flat literal - a 3-piece
+      // recipe reads as "??? + ??? + ???" so its size is visible before
+      // it's even found, rather than looking identical to a pair and
+      // leaving a would-be 3-piece cluster silently unmatched
+      label.textContent = Array(r.types.length).fill('???').join(' + ')
       hint.className = 'hint'
       hint.textContent = r.hint
       row.appendChild(label)
@@ -405,6 +420,7 @@ function checkUnlocks(): void {
 
   if (next.size > unlocked.size) {
     unlocked = next
+    scatterBursts(UNLOCK_BURST_COUNT, performance.now())
     // delayed rather than shown immediately - a print that both discovers
     // something *and* crosses an unlock threshold already put the
     // discovery's own toast up via showToast in handlePrint; queuing this
@@ -412,7 +428,7 @@ function checkUnlocks(): void {
     // this one silently clobbering it
     window.setTimeout(() => {
       showToast('✦ New pieces unlocked!')
-      playDiscovery()
+      playUnlock()
       mascotExcited()
     }, 2300)
   }
@@ -428,9 +444,10 @@ function checkRecipeSizeUnlock(): void {
 
   if (next > maxRecipeSize) {
     maxRecipeSize = next
+    scatterBursts(UNLOCK_BURST_COUNT, performance.now())
     window.setTimeout(() => {
       showToast(`✦ Try combining ${next} pieces now!`)
-      playDiscovery()
+      playUnlock()
       mascotExcited()
     }, 2300)
   }
@@ -606,16 +623,10 @@ async function handlePrint(): Promise<void> {
   // checkUnlocks' own toast is, so it doesn't clobber this print's last
   // per-recipe toast the instant it appears.
   if (anyNew && !wasComplete && discoveredIds.size === RECIPES.length) {
-    for (let i = 0; i < COMPLETION_BURST_COUNT; i += 1) {
-      discoveryBursts.push({
-        x: Math.random() * CANVAS_WIDTH,
-        y: Math.random() * CANVAS_HEIGHT,
-        at: now,
-      })
-    }
+    scatterBursts(COMPLETION_BURST_COUNT, now)
     window.setTimeout(() => {
       showToast('✦ Every sticker discovered! ✦', 4000)
-      playDiscovery()
+      playUnlock()
       mascotExcited()
     }, 2300)
   }

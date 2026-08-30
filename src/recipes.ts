@@ -104,7 +104,7 @@ export const RECIPES: Recipe[] = [
     types: ['rainbow', 'star'],
     effects: ['sparkle'],
     name: 'Shooting Rainbow',
-    hint: 'A rainbow that twinkles needs a little extra shimmer.',
+    hint: 'Add a little sparkle - watch it shoot across the sky.',
   },
   {
     id: 'peekaboo-moon',

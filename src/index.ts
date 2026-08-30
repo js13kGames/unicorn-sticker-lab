@@ -1286,6 +1286,15 @@ const BG_TILE = 150
 const BG_SCROLL_SPEED = 18 // px/sec - the whole grid scrolls as one layer
 const BG_SCALES = [1.1, 1.6]
 
+// a plain `%` returns a negative result for a negative n (e.g. -1 % 8 ===
+// -1, not 7) - the world column index below is negative early on (before
+// scroll distance exceeds one tile), so an unsigned modulo is needed for
+// TRAY_ORDER/BG_SCALES lookups to stay in range instead of indexing
+// negative/undefined
+function mod(n: number, m: number): number {
+  return ((n % m) + m) % m
+}
+
 function resizeBgDrift(): void {
   bgDriftCanvas.width = window.innerWidth
   bgDriftCanvas.height = window.innerHeight
@@ -1310,20 +1319,28 @@ function drawBgDrift(now: number): void {
 
   bgDriftCtx.globalAlpha = BG_DRIFT_ALPHA
 
-  // wraps every BG_TILE px, so redrawing from one column early to one
-  // column past the right edge is always enough to cover the full width
-  // seamlessly, however wide the viewport is
-  const scrollX = ((now / 1000) * BG_SCROLL_SPEED) % BG_TILE
-  const cols = Math.ceil(w / BG_TILE) + 2
+  // an ever-growing distance, deliberately never wrapped into [0, BG_TILE)
+  // - that was the actual bug behind the periodic "jump": each cell's
+  // type/scale was keyed off its own loop-index column directly, but
+  // wrapping *only* the position offset meant that index snapped back to
+  // its starting range every BG_TILE px while the drawn positions stayed
+  // continuous (covered by redrawing an extra column) - so the *set* of
+  // types on screen silently reshuffled in one synchronized pop each wrap
+  // (~8s at this speed), even though no position ever visibly jumped.
+  // Using true (unwrapped) world column numbers for the type/scale lookup
+  // means a given column is the same piece forever - nothing to reshuffle
+  const totalScroll = (now / 1000) * BG_SCROLL_SPEED
   const rows = Math.ceil(h / BG_TILE) + 1
+  const firstCol = Math.floor((totalScroll - BG_TILE) / BG_TILE)
+  const lastCol = Math.ceil((totalScroll + w + BG_TILE) / BG_TILE)
 
   for (let row = 0; row < rows; row += 1) {
     const rowOffset = (row % 2) * (BG_TILE / 2)
 
-    for (let col = -1; col < cols; col += 1) {
-      const type = TRAY_ORDER[(row + col + TRAY_ORDER.length) % TRAY_ORDER.length]
-      const scale = BG_SCALES[(row + col) % BG_SCALES.length]
-      const x = col * BG_TILE + rowOffset - scrollX
+    for (let col = firstCol; col <= lastCol; col += 1) {
+      const type = TRAY_ORDER[mod(row + col, TRAY_ORDER.length)]
+      const scale = BG_SCALES[mod(row + col, BG_SCALES.length)]
+      const x = col * BG_TILE + rowOffset - totalScroll
       const y = row * BG_TILE
 
       bgDriftCtx.save()

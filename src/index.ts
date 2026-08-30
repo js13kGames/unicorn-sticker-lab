@@ -614,7 +614,7 @@ async function handlePrint(): Promise<void> {
       })
     }
     window.setTimeout(() => {
-      showToast('🎉 Every sticker discovered!', 4000)
+      showToast('✦ Every sticker discovered! ✦', 4000)
       playDiscovery()
       mascotExcited()
     }, 2300)

@@ -1,3 +1,4 @@
+import { RECIPES } from './recipes'
 import type { ComponentType, EffectType } from './types'
 
 export interface Tier<T> { types: T[]; unlockAt: number }
@@ -21,11 +22,16 @@ export interface Tier<T> { types: T[]; unlockAt: number }
 // buildable from the pieces already unlocked (see the recipe-count math
 // in RECIPE_SIZE_TIERS' own comment below), so nobody hits an unlock wall
 // before they're ready.
+// the last tier: a joke sticker (see drawGooglyEyes in components.ts), not
+// another themed piece - a reward for full completion rather than one more
+// thing progression is gated on, so it unlocks at RECIPES.length rather
+// than being spaced in with the others above
 export const TIERS: Tier<ComponentType>[] = [
   { types: ['unicorn', 'rainbow', 'star', 'cloud', 'heart'], unlockAt: 0 },
   { types: ['sun'], unlockAt: 2 },
   { types: ['moon'], unlockAt: 4 },
   { types: ['balloon'], unlockAt: 6 },
+  { types: ['googlyEyes'], unlockAt: RECIPES.length },
 ]
 
 // generic across TIERS/EFFECT_TIERS - both are just "a set of things that
@@ -40,18 +46,24 @@ function unlockedFrom<T>(tiers: Tier<T>[], discoveryCount: number): Set<T> {
   return set
 }
 
-// the next tier still locked, if any - used to word the "N more to unlock"
-// hint on locked tray pieces/effect buttons
-function tierAfter<T>(tiers: Tier<T>[], discoveryCount: number): Tier<T> | undefined {
-  return tiers.find(t => t.unlockAt > discoveryCount)
+// which tier gates a specific item - used to word the "N more to unlock"
+// hint on a locked tray/effect button for exactly the item it's on, not
+// whichever tier happens to unlock next overall. Those are usually the
+// same thing when tiers are closely spaced, but TIERS' own tail tier (the
+// googly-eyes completion reward, way out at RECIPES.length) makes the gap
+// obvious: while sun/moon/balloon are still locked, a locked googly-eyes
+// button showing "N more" for whichever of *those* unlocks next would be
+// nowhere close to true.
+function tierOf<T>(tiers: Tier<T>[], item: T): Tier<T> | undefined {
+  return tiers.find(t => t.types.includes(item))
 }
 
 export function unlockedTypes(discoveryCount: number): Set<ComponentType> {
   return unlockedFrom(TIERS, discoveryCount)
 }
 
-export function nextTier(discoveryCount: number): Tier<ComponentType> | undefined {
-  return tierAfter(TIERS, discoveryCount)
+export function tierForType(type: ComponentType): Tier<ComponentType> | undefined {
+  return tierOf(TIERS, type)
 }
 
 // 'none' is always available (unlockAt: 0) since it's not a real effect to
@@ -74,8 +86,8 @@ export function unlockedEffects(discoveryCount: number): Set<EffectType> {
   return unlockedFrom(EFFECT_TIERS, discoveryCount)
 }
 
-export function nextEffectTier(discoveryCount: number): Tier<EffectType> | undefined {
-  return tierAfter(EFFECT_TIERS, discoveryCount)
+export function tierForEffect(effect: EffectType): Tier<EffectType> | undefined {
+  return tierOf(EFFECT_TIERS, effect)
 }
 
 export interface RecipeSizeTier { size: number; unlockAt: number }

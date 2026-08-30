@@ -1,6 +1,6 @@
 import './styles/game.css'
 import {
-  COMPONENTS, TRAY_ORDER, stampSilhouette, stampFlat, drawOutlined,
+  COMPONENTS, TRAY_ORDER, stampSilhouette, stampFlat, drawOutlined, drawGooglyEyesTracking,
 } from './components'
 import {
   playPlace, playDelete, playClick, playDrop, playDiscovery, playUnlock,
@@ -13,7 +13,7 @@ import { clusterByOverlap, circlesTouch } from './cluster'
 import { drawConfettiBurst, BURST_DURATION_MS } from './confetti'
 import { drawLandingBurst, LANDING_BURST_MS } from './landingBurst'
 import {
-  unlockedTypes, nextTier, maxUnlockedRecipeSize, unlockedEffects, nextEffectTier,
+  unlockedTypes, tierForType, maxUnlockedRecipeSize, unlockedEffects, tierForEffect,
 } from './progression'
 import { saveGame, loadGame } from './save'
 import { pickRequest } from './requests'
@@ -109,6 +109,23 @@ let nextGroupId = 1
 let selectedId: number | null = null
 let currentColor = DEFAULT_COLOR
 let dragOffset: { x: number; y: number } | null = null
+
+// tracked globally (not just over the mascot canvas) so the eyes keep
+// following the cursor anywhere on the page, not only while over the
+// mascot - also read by render()'s own googlyEyes case below, converted
+// there into the main canvas's coordinate space (see pointerCanvasX/Y)
+let pointerScreenX = 0
+let pointerScreenY = 0
+
+window.addEventListener('pointermove', (e) => {
+  pointerScreenX = e.clientX
+  pointerScreenY = e.clientY
+})
+
+// pointerScreenX/Y converted into the main canvas's own coordinate space -
+// updated once per frame in render(), read by placeRaw's googlyEyes case
+let pointerCanvasX = 0
+let pointerCanvasY = 0
 const discoveredIds = new Set<string>()
 let toastTimer: number | undefined
 const trayButtons = new Map<ComponentType, HTMLButtonElement>()
@@ -464,13 +481,11 @@ function lockedHint(tier: { unlockAt: number } | undefined): string {
 // touch has no hover to reveal. Left clickable so addSticker's own guard
 // (see below) can answer that tap with a toast instead.
 function refreshTray(): void {
-  const next = nextTier(discoveredIds.size)
-
   trayButtons.forEach((btn, type) => {
     const isUnlocked = unlocked.has(type)
 
     btn.classList.toggle('locked', !isUnlocked)
-    btn.title = isUnlocked ? type : lockedHint(next)
+    btn.title = isUnlocked ? type : lockedHint(tierForType(type))
   })
 }
 
@@ -478,13 +493,11 @@ function refreshTray(): void {
 // progression.ts) - a locked effect can't be picked and reads as locked at
 // a glance, same "N more discoveries" wording
 function refreshEffects(): void {
-  const next = nextEffectTier(discoveredIds.size)
-
   effectButtons.forEach((btn, effect) => {
     const isUnlocked = unlockedFx.has(effect)
 
     btn.classList.toggle('locked', !isUnlocked)
-    btn.title = isUnlocked ? effect : lockedHint(next)
+    btn.title = isUnlocked ? effect : lockedHint(tierForEffect(effect))
   })
 }
 
@@ -503,17 +516,24 @@ function checkUnlocks(): void {
     const added = TRAY_ORDER.filter(t => next.has(t) && !unlocked.has(t))
 
     unlocked = next
-    scatterBursts(UNLOCK_BURST_COUNT, performance.now())
-    // delayed rather than shown immediately - a print that both discovers
-    // something *and* crosses an unlock threshold already put the
-    // discovery's own toast up via showToast in handlePrint; queuing this
-    // one after that toast's own 2200ms lets the player see both instead of
-    // this one silently clobbering it
-    window.setTimeout(() => {
-      showToast('✦ New pieces unlocked!', 2200, added.length === 1 ? makeIcon(added[0]) : undefined)
-      playUnlock()
-      mascotExcited()
-    }, 2300)
+    // full completion (see the wasComplete block in handlePrint) already
+    // gets its own bigger toast that names this same reward directly -
+    // showing "New pieces unlocked!" a moment later would just clobber
+    // that toast for nothing, so only the confetti/tray-refresh below
+    // still happen in that one case, not this toast/sound
+    if (discoveredIds.size < RECIPES.length) {
+      scatterBursts(UNLOCK_BURST_COUNT, performance.now())
+      // delayed rather than shown immediately - a print that both discovers
+      // something *and* crosses an unlock threshold already put the
+      // discovery's own toast up via showToast in handlePrint; queuing this
+      // one after that toast's own 2200ms lets the player see both instead
+      // of this one silently clobbering it
+      window.setTimeout(() => {
+        showToast('✦ New pieces unlocked!', 2200, added.length === 1 ? makeIcon(added[0]) : undefined)
+        playUnlock()
+        mascotExcited()
+      }, 2300)
+    }
   }
   refreshTray()
 }
@@ -733,7 +753,7 @@ async function handlePrint(): Promise<void> {
   if (anyNew && !wasComplete && discoveredIds.size === RECIPES.length) {
     scatterBursts(COMPLETION_BURST_COUNT, now)
     window.setTimeout(() => {
-      showToast('✦ Every sticker discovered! ✦', 4000)
+      showToast('✦ Every sticker discovered! Googly eyes unlocked! ✦', 4000)
       playUnlock()
       mascotExcited()
     }, 2300)
@@ -771,7 +791,21 @@ function placeRaw(p: Placed, now: number): void {
   ctx.translate(p.x, p.y + printFlourish(p, now))
   ctx.rotate(p.rotation)
   ctx.scale(p.flip ? -scale : scale, scale)
-  COMPONENTS[p.type](ctx, p.color)
+  if (p.type === 'googlyEyes') {
+    // watches the pointer live instead of COMPONENTS' own fixed default
+    // look - the vector from this sticker to the pointer, rotated into
+    // its own local (unrotated) space so the eyes track the right way
+    // even on a spun sticker. ctx's own flip scale above already mirrors
+    // whatever gets drawn here, same as every other component
+    const dx = pointerCanvasX - p.x
+    const dy = pointerCanvasY - p.y
+    const cos = Math.cos(-p.rotation)
+    const sin = Math.sin(-p.rotation)
+
+    drawGooglyEyesTracking(ctx, dx * cos - dy * sin, dx * sin + dy * cos)
+  } else {
+    COMPONENTS[p.type](ctx, p.color)
+  }
   ctx.restore()
 }
 
@@ -801,6 +835,15 @@ function render(now: number): void {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
   ctx.fillStyle = CANVAS_BG
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+
+  // canvas-space pointer position, recomputed every frame same as the
+  // rest of render() - only placeRaw's own googlyEyes case actually reads
+  // this, but it's cheap enough not to bother gating on whether one's on
+  // the canvas right now
+  const canvasRect = canvas.getBoundingClientRect()
+
+  pointerCanvasX = ((pointerScreenX - canvasRect.left) / canvasRect.width) * CANVAS_WIDTH
+  pointerCanvasY = ((pointerScreenY - canvasRect.top) / canvasRect.height) * CANVAS_HEIGHT
 
   stickers.forEach((p) => {
     if (isBehindEffect(p.effect)) placeEffect(p, now)
@@ -1078,7 +1121,7 @@ function addSticker(type: ComponentType): void {
   // comment on why) - this is the only feedback a touch player tapping a
   // locked one gets, since there's no hover to reveal its title tooltip
   if (!unlocked.has(type)) {
-    showToast(lockedHint(nextTier(discoveredIds.size)))
+    showToast(lockedHint(tierForType(type)))
 
     return
   }
@@ -1133,7 +1176,7 @@ function addSticker(type: ComponentType): void {
 // tray icon's origin per type so all 8 land on the same visual center -
 // index-aligned with TRAY_ORDER, not a Record, since it's only ever read
 // by position here.
-const TRAY_ICON_NUDGE_Y = [1.5, 0, -1, 1.5, -2.5, 0.5, 0.5, -3]
+const TRAY_ICON_NUDGE_Y = [1.5, 0, -1, 1.5, -2.5, 0.5, 0.5, -3, 0]
 
 // shared by the tray buttons below and the unlock toast's own preview icon
 // (see checkUnlocks) - same drawing, same per-type vertical nudge, so a
@@ -1207,7 +1250,7 @@ EFFECT_ORDER.forEach((effect) => {
     // own comment on refreshTray, same reasoning) - same
     // toast-instead-of-silence convention as addSticker's own guard
     if (!unlockedFx.has(effect)) {
-      showToast(lockedHint(nextEffectTier(discoveredIds.size)))
+      showToast(lockedHint(tierForEffect(effect)))
 
       return
     }
@@ -1466,16 +1509,6 @@ function loop(now: number): void {
 }
 
 requestAnimationFrame(loop)
-
-// tracked globally (not just over the mascot canvas) so the eyes keep
-// following the cursor anywhere on the page, not only while over the mascot
-let pointerScreenX = 0
-let pointerScreenY = 0
-
-window.addEventListener('pointermove', (e) => {
-  pointerScreenX = e.clientX
-  pointerScreenY = e.clientY
-})
 
 // the mascot idles continuously even when nothing else changes, so it gets
 // its own animation loop instead of only redrawing on state changes

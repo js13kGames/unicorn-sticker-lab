@@ -60,4 +60,5 @@ export const NATURAL_COLOR: Record<ComponentType, string> = {
   sun: PALETTE[2], // orange
   moon: PALETTE[8], // pale
   balloon: PALETTE[1], // red
+  googlyEyes: PALETTE[8], // unused too - always white sclera/dark pupil
 }

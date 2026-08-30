@@ -223,6 +223,43 @@ const drawBalloon: Draw = (ctx, color) => {
   ctx.stroke()
 }
 
+// The 100%-completion bonus piece (see TIERS in progression.ts) - a joke,
+// not a themed sticker, since finishing every recipe deserves a laugh.
+// Both eyes share one look direction (ex/ey, already clamped to how far a
+// pupil can stray from dead-center) rather than each tracking separately -
+// a real googly-eye toy's pupils roll together too.
+const EYE_PAIR_GAP = 20
+const GOOGLY_SCLERA_R = 16
+const GOOGLY_PUPIL_R = 7
+
+function drawEyePair(ctx: CanvasRenderingContext2D, ex: number, ey: number): void {
+  [-EYE_PAIR_GAP, EYE_PAIR_GAP].forEach((cx) => {
+    blob(ctx, '#ffffff', () => circlePath(ctx, cx, 0, GOOGLY_SCLERA_R))
+    dot(ctx, cx + ex, ey, GOOGLY_PUPIL_R)
+  })
+}
+
+// COMPONENTS' own entry - used for the tray icon, Collection/Album
+// thumbnails, and hit-testing, none of which have a pointer position to
+// track. A fixed, slightly cockeyed look for a bit of default character
+// rather than dead-center pupils, which read as inert/broken rather than
+// "not tracking yet."
+const drawGooglyEyes: Draw = ctx => drawEyePair(ctx, 3, 4)
+
+// the live version - drawn instead of COMPONENTS.googlyEyes for a placed
+// sticker on the main canvas (see placeRaw in index.ts), so it actually
+// watches the pointer the way the mascot's own eye does. `lookX`/`lookY`
+// is the pointer's position relative to this sticker, already rotated
+// into its local (unrotated) space by the caller - same shape as
+// drawMascotUnicorn's own eyeX/eyeY, just clamped here instead of there.
+export function drawGooglyEyesTracking(ctx: CanvasRenderingContext2D, lookX: number, lookY: number): void {
+  const maxOffset = GOOGLY_SCLERA_R - GOOGLY_PUPIL_R - 1
+  const mag = Math.sqrt(lookX * lookX + lookY * lookY)
+  const scale = mag > maxOffset ? maxOffset / mag : 1
+
+  drawEyePair(ctx, lookX * scale, lookY * scale)
+}
+
 // Gives a shared, uniform-width border around the combined silhouette of
 // whatever `place` draws, instead of a separate stroke per shape/component.
 // `place` should draw everything (any number of positioned components) with
@@ -277,6 +314,7 @@ export const COMPONENTS: Record<ComponentType, Draw> = {
   sun: drawSun,
   moon: drawMoon,
   balloon: drawBalloon,
+  googlyEyes: drawGooglyEyes,
 }
 
 export const TRAY_ORDER: ComponentType[] = [
@@ -288,4 +326,5 @@ export const TRAY_ORDER: ComponentType[] = [
   'sun',
   'moon',
   'balloon',
+  'googlyEyes',
 ]

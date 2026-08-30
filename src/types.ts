@@ -7,6 +7,7 @@ export type ComponentType =
   | 'sun'
   | 'moon'
   | 'balloon'
+  | 'googlyEyes'
 
 export type EffectType = 'none' | 'sparkle' | 'glow' | 'hearts'
 

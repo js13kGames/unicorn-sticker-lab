@@ -223,23 +223,27 @@ body {
 
 /* toggled in render() whenever unprinted stickers currently overlap enough
    to cluster - printing is the whole point of the game but easy to forget
-   about mid-drag, so the button itself pulses the instant a combo becomes
-   possible instead of waiting to be noticed. rgba below is $accent's own
-   #4d7cff by hand (same hand-duplication vars.js's own canvasBg comment
-   describes - these are two separate build-time systems) */
+   about mid-drag, so the button itself flashes the instant a combo becomes
+   possible instead of waiting to be noticed. Flashes all the way to the
+   unicorn's own pink (PALETTE[0]/#ff6b9d, hand-duplicated the same way
+   vars.js's own canvasBg comment describes - two separate build-time
+   systems) rather than just a brighter blue, so it reads as a distinct
+   "look here" color and not a subtler shade of the button's resting one */
 #printBtn.ready {
-  animation: printReady 0.9s ease-in-out infinite;
+  animation: printReady 0.7s ease-in-out infinite;
 }
 
 @keyframes printReady {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(77, 124, 255, 0.7);
+    background: $accent;
+    box-shadow: 0 0 0 0 rgba(255, 107, 157, 0.8);
     transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 10px rgba(77, 124, 255, 0);
-    transform: scale(1.08);
+    background: #ff6b9d;
+    box-shadow: 0 0 0 12px rgba(255, 107, 157, 0);
+    transform: scale(1.12);
   }
 }
 

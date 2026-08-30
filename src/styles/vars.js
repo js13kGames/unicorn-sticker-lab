@@ -10,9 +10,16 @@ module.exports = {
   // where the shared white outline (also white on the real canvas) is
   // actually visible, instead of on the panel's own white and vanishing
   canvasBg: '#9b7fe8',
-  // shared by #c and #tray so they always shrink in lockstep on short
-  // viewports - #tray's own max-width can never exceed the canvas's
-  // rendered width this way, which keeps #stage reliably #app's widest
-  // child (see the layout comments in game.css for why that matters)
-  canvasSize: 'min(400px, 90vw, calc(100vh - 280px))',
+  // only #c uses this directly (#tray has its own flat 400px max-width -
+  // tying it to this too was tried and reverted, since a short-but-wide
+  // viewport would then force tray to shrink in lockstep with the
+  // vertically-driven canvas even though tray had plenty of horizontal
+  // room, wrapping into far more rows than the viewport actually needed).
+  // The 320px budget is everything else in #app's column measured at its
+  // actual rendered height (header/request/print row/toolbar/colors/
+  // effects/tray) - it's crept up over time as rows were added, so this
+  // needs rechecking if the column ever grows another row; a stale
+  // (too-small) budget is exactly what let #app overflow a short
+  // viewport instead of shrinking to fit it.
+  canvasSize: 'min(400px, 90vw, calc(100vh - 320px))',
 }

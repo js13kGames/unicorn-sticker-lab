@@ -393,7 +393,9 @@ function updateRequest(): void {
 // CSS default is an ordinary centered row, so this just clears any
 // leftover inline position from a previous wide layout.
 function positionRequest(): void {
-  if (!window.matchMedia('(min-width: 640px)').matches) {
+  // must agree with game.css's own (min-width: 640px) and (min-height: 480px)
+  // media query gating the same wide/sidebar layout - see its comment for why
+  if (!window.matchMedia('(min-width: 640px) and (min-height: 480px)').matches) {
     requestEl.style.left = ''
     requestEl.style.top = ''
 

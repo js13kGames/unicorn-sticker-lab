@@ -161,8 +161,19 @@ body {
    560px of canvas+gap+mascot centered still needs ~106px clear to the left
    of the canvas's own left edge, so this only kicks in once the viewport
    is wide enough that margin actually exists (406px canvas box centered
-   leaves (viewport-406)/2 on each side; solving for >=106 gives ~618px). */
-@media (min-width: 640px) {
+   leaves (viewport-406)/2 on each side; solving for >=106 gives ~618px).
+   Also gated on height: this layout puts #request in a narrow 86px-wide
+   column beside the mascot, which wraps a full hint sentence to 3-4 short
+   lines - fine when the canvas has room to be tall too, but on a short
+   *and* wide viewport (a landscape phone, a small desktop window) the
+   canvas shrinks while that wrapped column doesn't, and since #request is
+   positioned absolutely (see below), nothing stops it from growing right
+   over the print row underneath. Below this height it's simpler and more
+   robust to just fall back to the narrow layout's stacked #request row,
+   which already shrinks correctly via $canvasSize - matched by the same
+   query in positionRequest() (index.ts), which has to agree with this one
+   or JS would position a box CSS never took out of flow. */
+@media (min-width: 640px) and (min-height: 480px) {
   #mascot {
     top: 0;
     left: -106px;

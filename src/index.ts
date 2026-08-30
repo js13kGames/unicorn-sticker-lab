@@ -1145,6 +1145,17 @@ collectionCloseBtn.addEventListener('click', () => {
   collectionEl.classList.add('hidden')
 })
 
+// closes on a click/tap anywhere on the dimmed backdrop, not just the X -
+// e.target === the overlay itself (not e.currentTarget, which the listener
+// is always attached to) rules out a click that bubbled up from inside
+// #collectionPanel, so interacting with the actual panel content never
+// closes it by accident
+collectionEl.addEventListener('click', (e) => {
+  if (e.target !== collectionEl) return
+  playClick()
+  collectionEl.classList.add('hidden')
+})
+
 albumBtn.addEventListener('click', () => {
   playClick()
   renderAlbumGrid()
@@ -1152,6 +1163,12 @@ albumBtn.addEventListener('click', () => {
 })
 
 albumCloseBtn.addEventListener('click', () => {
+  playClick()
+  albumEl.classList.add('hidden')
+})
+
+albumEl.addEventListener('click', (e) => {
+  if (e.target !== albumEl) return
   playClick()
   albumEl.classList.add('hidden')
 })

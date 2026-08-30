@@ -1,8 +1,20 @@
+/* background lives on html only, not body - both had it (one shared rule)
+   until this was found to be exactly why #bgDrift's negative z-index
+   wasn't showing through: html's background is what the HTML5 canvas-
+   propagation rule moves to the page's own root canvas layer (painted
+   first, behind every negative-z-index descendant, including #bgDrift) -
+   but body still had its own separately-declared background too, which
+   propagation does NOT also clear. That box paints as an ordinary in-flow
+   element, above negative-z-index content, covering #bgDrift everywhere
+   body's box reached (the whole viewport, not just "near the UI"). */
+html {
+  background: $bg;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
-  background: $bg;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,9 +460,20 @@ body {
   padding: 8px 26px;
 }
 
+/* the panel itself no longer scrolls as one block - it used to
+   (overflow-y here), which meant #collectionClose/#albumClose (each
+   absolutely positioned *relative to this same element*) scrolled away
+   with the rest of the content instead of staying reachable, so closing
+   a long list meant scrolling back to the top first. Now a flex column:
+   the close button stays pinned via its own absolute positioning against
+   a panel that itself never scrolls, and only the list/grid content
+   below (#collectionList/#albumGrid - see their own rules) scrolls
+   inside its own bounded region. */
 #collectionPanel,
 #albumPanel {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: $panel;
   border: 3px solid $ink;
   border-radius: 16px;
@@ -458,7 +481,6 @@ body {
   width: 300px;
   max-width: 85vw;
   max-height: 80vh;
-  overflow-y: auto;
 }
 
 /* a bit roomier than #albumPanel's shared default above - bigger
@@ -590,10 +612,26 @@ body {
   font-size: 15px;
 }
 
+/* the actual scroll region now (see #collectionPanel/#albumPanel's own
+   comment) - flex:1 claims the panel's remaining height after the fixed
+   h1/close button above (and #resetBtn below, for Collection) so the
+   panel's own max-height is spent here, not on growing past it; min-
+   height:0 overrides flexbox's default "never shrink below content size"
+   behavior, which without it would make this stretch the whole panel
+   tall instead of actually scrolling within the bounded space */
+#collectionList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 #albumGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* newest print first (see the Album section of index.ts) - no scores or

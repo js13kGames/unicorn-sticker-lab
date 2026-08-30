@@ -1355,8 +1355,18 @@ function drawBgDrift(now: number): void {
     const rowOffset = (row % 2) * (BG_TILE / 2)
 
     for (let col = firstCol; col <= lastCol; col += 1) {
-      const type = TRAY_ORDER[mod(row + col, TRAY_ORDER.length)]
-      const scale = BG_SCALES[mod(row + col, BG_SCALES.length)]
+      // weighted 1:3 rather than 1:1 (plain row+col) - with the brick
+      // offset above, a row's cells sit *between* the row above/below's
+      // own cells, so each cell's true nearest neighbors are left/right
+      // in its own row (col±1) *and* diagonal (row±1, col or col∓1,
+      // depending on row parity) - row+col is constant along one of
+      // those diagonals, so neighbors on it always got the same type (the
+      // reported "same sticker lined up in the next row"). This weighting
+      // keeps every one of those neighbor deltas (±1, ±3, ±2, ±4 mod 8)
+      // nonzero, so no two actually-adjacent cells can match.
+      const key = row + col * 3
+      const type = TRAY_ORDER[mod(key, TRAY_ORDER.length)]
+      const scale = BG_SCALES[mod(key, BG_SCALES.length)]
       const x = col * BG_TILE + rowOffset - totalScroll
       const y = row * BG_TILE
 

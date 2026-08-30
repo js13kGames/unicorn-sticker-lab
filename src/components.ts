@@ -113,6 +113,7 @@ export function drawMascotUnicorn(
   color: string,
   eyeX: number,
   eyeY: number,
+  blink: number,
 ): void {
   drawUnicornBody(ctx, color)
 
@@ -120,8 +121,16 @@ export function drawMascotUnicorn(
   const mag = Math.sqrt(eyeX * eyeX + eyeY * eyeY)
   const scale = mag > maxOffset ? maxOffset / mag : 1
 
+  // squashed flat around its own center rather than a separate closed-eye
+  // shape - cheap, and reads fine since the sclera/pupil are already
+  // simple circles
+  ctx.save()
+  ctx.translate(EYE_CX, EYE_CY)
+  ctx.scale(1, 1 - blink * 0.9)
+  ctx.translate(-EYE_CX, -EYE_CY)
   blob(ctx, '#ffffff', () => circlePath(ctx, EYE_CX, EYE_CY, EYE_SCLERA_R))
   dot(ctx, EYE_CX + eyeX * scale, EYE_CY + eyeY * scale, EYE_PUPIL_R)
+  ctx.restore()
 }
 
 const RAINBOW_BANDS = ['#ff4d4d', '#ff9f43', '#ffd93d', '#6bcb77', '#4dd0e1', '#a26bff']

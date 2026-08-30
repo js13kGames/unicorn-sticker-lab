@@ -39,8 +39,18 @@ export function note(
   osc.stop(start + duration)
 }
 
-function blip(freqFrom: number, freqTo: number, duration: number, type: OscillatorType, gain: number): void {
-  note(freqFrom, freqTo, duration, type, gain)
+// +/-5% random pitch per play - the same short blip firing dozens of times
+// a session (place, click, rotate...) read as a robot clicking buttons
+// without it. Kept out of note() itself, not applied here-and-up: a
+// melodic sequence like playDiscovery's arpeggio wants its notes staying
+// in exact tune with each other, which independent per-note wobble would
+// blur.
+function blip(
+  freqFrom: number, freqTo: number, duration: number, type: OscillatorType, gain: number, delay = 0,
+): void {
+  const wobble = 0.95 + Math.random() * 0.1
+
+  note(freqFrom * wobble, freqTo * wobble, duration, type, gain, delay)
 }
 
 export function playPlace(): void {
@@ -59,6 +69,27 @@ export function playClick(): void {
 
 export function playDrop(): void {
   blip(160, 80, 0.07, 'sine', 0.12)
+}
+
+// the toolbar's own edit actions used to all share playClick, which gave
+// rotate/scale/flip/layer no way to feel like different actions - each
+// gets its own tiny sweep instead, direction-coded where the action
+// itself has a direction (dir>0 the "forward" one: rotR, scaleUp, front)
+export function playRotate(dir: number): void {
+  blip(dir > 0 ? 380 : 460, dir > 0 ? 460 : 380, 0.06, 'triangle', 0.09)
+}
+
+export function playScale(dir: number): void {
+  blip(dir > 0 ? 300 : 340, dir > 0 ? 340 : 300, 0.05, 'square', 0.07)
+}
+
+export function playFlip(): void {
+  blip(480, 300, 0.05, 'sine', 0.09)
+  blip(300, 480, 0.05, 'sine', 0.08, 0.05)
+}
+
+export function playLayer(dir: number): void {
+  blip(dir > 0 ? 350 : 500, dir > 0 ? 500 : 350, 0.07, 'sine', 0.08)
 }
 
 // A little ascending arpeggio for finding a new discovery - bigger and

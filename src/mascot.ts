@@ -5,6 +5,13 @@ const BASE_SCALE = 0.75
 const EXCITED_MS = 350
 const EYE_REACH = 4.5
 
+// a quick blink every few seconds - purely a function of `now` (no extra
+// scheduling state, unlike the poop's randomized timer below) since a
+// perfectly regular blink still reads as "alive" for something this
+// small and is far cheaper than giving it its own random schedule too
+const BLINK_PERIOD_MS = 4000
+const BLINK_MS = 140
+
 const POOP_DURATION_MS = 1100
 const POOP_MIN_DELAY_MS = 15000
 const POOP_MAX_DELAY_MS = 30000
@@ -79,6 +86,9 @@ export function renderMascot(
   const eyeX = (lookX / lookMag) * EYE_REACH
   const eyeY = (lookY / lookMag) * EYE_REACH
 
+  const blinkPhase = now % BLINK_PERIOD_MS
+  const blink = blinkPhase < BLINK_MS ? Math.sin((blinkPhase / BLINK_MS) * Math.PI) : 0
+
   const poopT = (now - poopAt) / POOP_DURATION_MS
 
   if (poopT >= 0 && poopT < 1) drawPoop(ctx, width, height, bounce, poopT)
@@ -90,7 +100,7 @@ export function renderMascot(
     ctx.translate(width / 2, height / 2 + 2 - bounce)
     ctx.rotate(tilt)
     ctx.scale(BASE_SCALE * squash, BASE_SCALE / squash)
-    drawMascotUnicorn(ctx, DEFAULT_COLOR, eyeX, eyeY)
+    drawMascotUnicorn(ctx, DEFAULT_COLOR, eyeX, eyeY, blink)
     ctx.restore()
   })
 }

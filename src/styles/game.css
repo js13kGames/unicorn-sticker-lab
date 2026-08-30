@@ -22,6 +22,18 @@ body {
   touch-action: none;
 }
 
+/* every button in the game presses down a little on tap and springs back
+   on release - one rule instead of repeating it per button class, and
+   :disabled is excluded so a locked tray/effect button (still clickable,
+   see refreshTray) doesn't look pressable */
+button:not(:disabled) {
+  transition: transform 0.08s;
+}
+
+button:not(:disabled):active {
+  transform: scale(0.92);
+}
+
 /* relative only so the wide-viewport #request override below (which needs
    to sit under the mascot, itself positioned relative to #stage) has a
    stable ancestor to measure from - doesn't otherwise change #app's own
@@ -104,7 +116,7 @@ body {
   position: absolute;
   top: 10px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -8px);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -116,7 +128,7 @@ body {
   font-weight: bold;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s, transform 0.3s;
   white-space: nowrap;
 }
 
@@ -130,6 +142,7 @@ body {
 
 #toast.show {
   opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 /* its own little home, same panel/border language as the main canvas.

@@ -4,6 +4,7 @@ import {
 } from './components'
 import {
   playPlace, playDelete, playClick, playDrop, playDiscovery, playUnlock,
+  playRotate, playScale, playFlip, playLayer,
 } from './audio'
 import { renderMascot, mascotExcited } from './mascot'
 import { startMusic, toggleMusic } from './music'
@@ -1316,8 +1317,14 @@ toolbarEl.addEventListener('click', (e) => {
   } else if (act === 'dup') {
     playPlace()
     mascotExcited()
-  } else {
-    playClick()
+  } else if (act === 'rotL' || act === 'rotR') {
+    playRotate(act === 'rotR' ? 1 : -1)
+  } else if (act === 'scaleUp' || act === 'scaleDown') {
+    playScale(act === 'scaleUp' ? 1 : -1)
+  } else if (act === 'flip') {
+    playFlip()
+  } else if (act === 'front' || act === 'back') {
+    playLayer(act === 'front' ? 1 : -1)
   }
 })
 

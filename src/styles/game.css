@@ -247,6 +247,14 @@ body {
   }
 }
 
+/* the same "ready" state, once it's not someone's first discovery anymore -
+   a static color swap instead of printReady's animated flash, so the
+   button still visibly says "this'll do something" without nagging for
+   the other 15 discoveries the way a repeating flash would */
+#printBtn.ready-quiet {
+  background: #ff6b9d;
+}
+
 /* deliberately plain/muted next to #printBtn's accent color - a
    destructive, rarely-used action shouldn't visually compete with the
    primary one, or read as "the other thing you do when you're ready" */

@@ -785,12 +785,19 @@ function render(now: number): void {
 
   // live preview of what Print would do right now - printing itself only
   // clusters on click (see handlePrint's own comment on why it's a manual
-  // "burn trigger", not continuous), but the button can still pulse the
+  // "burn trigger", not continuous), but the button can still flash the
   // instant dragging two pieces together would actually combine them,
-  // instead of that only being discoverable by clicking and seeing
+  // instead of that only being discoverable by clicking and seeing. The
+  // full flashing version is reserved for before the player's very first
+  // discovery - the one moment "click that button" genuinely needs
+  // spelling out - and settles into a quieter static highlight for every
+  // discovery after, so it doesn't keep flashing pink at someone who
+  // already knows what the button does for the rest of the game.
   const readyToPrint = clusterByOverlap(stickers.filter(s => s.groupId === null)).some(c => c.length > 1)
+  const firstTimer = discoveredIds.size === 0
 
-  printBtn.classList.toggle('ready', readyToPrint)
+  printBtn.classList.toggle('ready', readyToPrint && firstTimer)
+  printBtn.classList.toggle('ready-quiet', readyToPrint && !firstTimer)
 }
 
 function pointerPos(e: PointerEvent): { x: number; y: number } {

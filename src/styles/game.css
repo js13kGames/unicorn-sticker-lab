@@ -105,6 +105,9 @@ body {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: $panel;
   border: 2px solid $ink;
   border-radius: 10px;
@@ -115,6 +118,14 @@ body {
   pointer-events: none;
   transition: opacity 0.3s;
   white-space: nowrap;
+}
+
+/* an unlock toast's own preview icon (see checkUnlocks/makeIcon) - shrunk
+   from its native 48px the same way .tray-btn canvas is, so it reads as a
+   little badge next to the text rather than dwarfing the toast pill */
+#toast canvas {
+  width: 20px;
+  height: 20px;
 }
 
 #toast.show {

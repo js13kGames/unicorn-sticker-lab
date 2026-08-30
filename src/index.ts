@@ -212,8 +212,9 @@ function selected(): Placed | undefined {
   return stickers.find(s => s.id === selectedId)
 }
 
-function showToast(text: string, durationMs = 2200): void {
+function showToast(text: string, durationMs = 2200, icon?: HTMLCanvasElement): void {
   toastEl.textContent = text
+  if (icon) toastEl.prepend(icon)
   toastEl.classList.add('show')
   window.clearTimeout(toastTimer)
   toastTimer = window.setTimeout(() => toastEl.classList.remove('show'), durationMs)
@@ -419,6 +420,12 @@ function checkUnlocks(): void {
   const next = unlockedTypes(discoveredIds.size)
 
   if (next.size > unlocked.size) {
+    // each TIERS entry is one piece now (see progression.ts), so this is
+    // normally exactly one type - but stays generic rather than assuming
+    // that, only showing the toast's own icon when there's a single one
+    // to show
+    const added = TRAY_ORDER.filter(t => next.has(t) && !unlocked.has(t))
+
     unlocked = next
     scatterBursts(UNLOCK_BURST_COUNT, performance.now())
     // delayed rather than shown immediately - a print that both discovers
@@ -427,7 +434,7 @@ function checkUnlocks(): void {
     // one after that toast's own 2200ms lets the player see both instead of
     // this one silently clobbering it
     window.setTimeout(() => {
-      showToast('✦ New pieces unlocked!')
+      showToast('✦ New pieces unlocked!', 2200, added.length === 1 ? makeIcon(added[0]) : undefined)
       playUnlock()
       mascotExcited()
     }, 2300)
@@ -1000,19 +1007,18 @@ function addSticker(type: ComponentType): void {
 // by position here.
 const TRAY_ICON_NUDGE_Y = [1.5, 0, -1, 1.5, -2.5, 0.5, 0.5, -3]
 
-TRAY_ORDER.forEach((type, i) => {
-  const btn = document.createElement('button')
+// shared by the tray buttons below and the unlock toast's own preview icon
+// (see checkUnlocks) - same drawing, same per-type vertical nudge, so a
+// piece looks identical whichever one drew it
+function makeIcon(type: ComponentType): HTMLCanvasElement {
   const icon = document.createElement('canvas')
 
   icon.width = 48
   icon.height = 48
-  btn.className = 'tray-btn'
-  btn.title = type
-  btn.appendChild(icon)
 
   const iconCtx = icon.getContext('2d') as CanvasRenderingContext2D
 
-  iconCtx.translate(24, 26 + TRAY_ICON_NUDGE_Y[i])
+  iconCtx.translate(24, 26 + TRAY_ICON_NUDGE_Y[TRAY_ORDER.indexOf(type)])
   drawOutlined(
     iconCtx,
     () => {
@@ -1024,6 +1030,15 @@ TRAY_ORDER.forEach((type, i) => {
     3,
   )
 
+  return icon
+}
+
+TRAY_ORDER.forEach((type) => {
+  const btn = document.createElement('button')
+
+  btn.className = 'tray-btn'
+  btn.title = type
+  btn.appendChild(makeIcon(type))
   btn.addEventListener('click', () => addSticker(type))
   trayButtons.set(type, btn)
   trayEl.appendChild(btn)

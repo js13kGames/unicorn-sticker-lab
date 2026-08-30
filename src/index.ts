@@ -782,6 +782,15 @@ function render(now: number): void {
   effectsEl.querySelectorAll('.effect-btn').forEach((el) => {
     el.classList.toggle('active', (el as HTMLElement).dataset.effect === activeEffect)
   })
+
+  // live preview of what Print would do right now - printing itself only
+  // clusters on click (see handlePrint's own comment on why it's a manual
+  // "burn trigger", not continuous), but the button can still pulse the
+  // instant dragging two pieces together would actually combine them,
+  // instead of that only being discoverable by clicking and seeing
+  const readyToPrint = clusterByOverlap(stickers.filter(s => s.groupId === null)).some(c => c.length > 1)
+
+  printBtn.classList.toggle('ready', readyToPrint)
 }
 
 function pointerPos(e: PointerEvent): { x: number; y: number } {

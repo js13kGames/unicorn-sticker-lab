@@ -221,6 +221,28 @@ body {
   padding: 5px 14px;
 }
 
+/* toggled in render() whenever unprinted stickers currently overlap enough
+   to cluster - printing is the whole point of the game but easy to forget
+   about mid-drag, so the button itself pulses the instant a combo becomes
+   possible instead of waiting to be noticed. rgba below is $accent's own
+   #4d7cff by hand (same hand-duplication vars.js's own canvasBg comment
+   describes - these are two separate build-time systems) */
+#printBtn.ready {
+  animation: printReady 0.9s ease-in-out infinite;
+}
+
+@keyframes printReady {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(77, 124, 255, 0.7);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(77, 124, 255, 0);
+    transform: scale(1.08);
+  }
+}
+
 /* deliberately plain/muted next to #printBtn's accent color - a
    destructive, rarely-used action shouldn't visually compete with the
    primary one, or read as "the other thing you do when you're ready" */

@@ -11,7 +11,7 @@
     "pack": "cd build && bestzip --level 9 build.zip *",
     "size": "node ./check-size.js",
     "eslint": "eslint src/**/*.ts",
-    "build-prod": "rm -rf build/* && node ./esbuild-prod.js && npm run pack && npm run size",
+    "build-prod": "rm -rf build/* && node ./esbuild-prod.js && node ./roadroll.js && npm run pack && npm run size",
     "preview-prod": "cd build && http-server -p 3030"
   },
   "devDependencies": {
@@ -32,6 +32,7 @@
     "jest-environment-jsdom": "^29.6.0",
     "postcss": "^8.5.6",
     "postcss-simple-vars": "^7.0.1",
+    "roadroller": "^2.1.0",
     "ts-jest": "^29.1.0",
     "typescript": "^5.5.0"
   },

@@ -53,9 +53,9 @@ mascotCanvas.width = MASCOT_SIZE
 mascotCanvas.height = MASCOT_SIZE
 const mascotCtx = mascotCanvas.getContext('2d') as CanvasRenderingContext2D
 
+const bgDriftCanvas = document.getElementById('bgDrift') as HTMLCanvasElement
+const bgDriftCtx = bgDriftCanvas.getContext('2d') as CanvasRenderingContext2D
 const titleEl = document.getElementById('title') as HTMLDivElement
-const titleBgCanvas = document.getElementById('titleBg') as HTMLCanvasElement
-const titleBgCtx = titleBgCanvas.getContext('2d') as CanvasRenderingContext2D
 const titleCanvas = document.getElementById('titleCanvas') as HTMLCanvasElement
 const titleCtx = titleCanvas.getContext('2d') as CanvasRenderingContext2D
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement
@@ -935,7 +935,13 @@ function addSticker(type: ComponentType): void {
     // get a piece perfectly straight again (no "reset rotation" action,
     // and the toolbar only rotates in fixed steps from wherever it is)
     rotation: 0,
-    color: currentColor,
+    // its own natural color, not whatever swatch was last clicked - a new
+    // piece starting off in currentColor made every placement inherit
+    // whatever color happened to be active from editing something earlier,
+    // even after that something was deleted or printed away. currentColor
+    // still applies to recoloring an already-selected piece (see the color
+    // swatch handler below) - only the *starting* color changed here.
+    color: NATURAL_COLOR[type],
     flip: false,
     effect: 'none',
     groupId: null,
@@ -950,7 +956,7 @@ function addSticker(type: ComponentType): void {
   // celebrating. Still grabbable/draggable immediately either way -
   // pointerdown's own hit-testing doesn't depend on prior selection.
   landingBursts.push({
-    x, y, color: currentColor, at: now,
+    x, y, color: NATURAL_COLOR[type], at: now,
   })
   playPlace()
   mascotExcited()
@@ -1197,8 +1203,13 @@ positionRequest()
 window.addEventListener('resize', positionRequest)
 
 // stickers render continuously (not just on state changes) since effects
-// (sparkle/glow/hearts) animate on their own even when nothing else does
+// (sparkle/glow/hearts) animate on their own even when nothing else does.
+// drawBgDrift is a function declaration (hoisted), so this forward
+// reference to something defined later in the file is safe - by the time
+// any requestAnimationFrame callback actually fires, the whole module has
+// already finished its initial synchronous run.
 function loop(now: number): void {
+  drawBgDrift(now)
   render(now)
   requestAnimationFrame(loop)
 }
@@ -1245,11 +1256,12 @@ const TITLE_FLOATERS: { type: ComponentType; x: number; y: number; scale: number
 
 const TITLE_MASCOT_SCALE = 1.8
 
-// every component drifting slowly across the full title backdrop, not just
-// the boxed canvas - "instead of a blank background." Flat monochrome
-// (stampFlat, CANVAS_BG at low alpha) rather than each piece's real color:
-// this is meant to read as a subtle textured watermark behind the title
-// card, not compete with the foreground mascot/floaters for attention.
+// every component drifting slowly across the full page backdrop (#bgDrift,
+// a body-level canvas, not scoped to #title - keeps running on the main
+// play screen too, via the main loop() below, not just while the title
+// screen is up). Flat monochrome (stampFlat, CANVAS_BG at low alpha) rather
+// than each piece's real color: meant to read as a subtle textured
+// watermark, not compete with the foreground for attention.
 const BG_DRIFT_ALPHA = 0.1
 // two passes of every type (16 rows, not 8) for a denser field - `i` still
 // runs across the full doubled list, so the two instances of a given type
@@ -1264,43 +1276,41 @@ const BG_DRIFTERS = BG_DRIFT_TYPES.map((type, i) => ({
   phase: (i / BG_DRIFT_TYPES.length) + 0.05,
 }))
 
-function resizeTitleBg(): void {
-  titleBgCanvas.width = window.innerWidth
-  titleBgCanvas.height = window.innerHeight
+function resizeBgDrift(): void {
+  bgDriftCanvas.width = window.innerWidth
+  bgDriftCanvas.height = window.innerHeight
 }
 
-function drawTitleBg(now: number): void {
-  const w = titleBgCanvas.width
-  const h = titleBgCanvas.height
+function drawBgDrift(now: number): void {
+  const w = bgDriftCanvas.width
+  const h = bgDriftCanvas.height
 
-  titleBgCtx.clearRect(0, 0, w, h)
-  titleBgCtx.globalAlpha = BG_DRIFT_ALPHA
+  bgDriftCtx.clearRect(0, 0, w, h)
+  bgDriftCtx.globalAlpha = BG_DRIFT_ALPHA
 
   BG_DRIFTERS.forEach((d) => {
     const margin = 70 * d.scale
     const span = w + margin * 2
     const x = (((now / 1000) * d.speed + d.phase * span) % span) - margin
 
-    titleBgCtx.save()
-    titleBgCtx.translate(x, d.yFrac * h)
-    titleBgCtx.scale(d.scale, d.scale)
-    stampFlat(titleBgCtx, () => COMPONENTS[d.type](titleBgCtx, ''), CANVAS_BG)
-    titleBgCtx.restore()
+    bgDriftCtx.save()
+    bgDriftCtx.translate(x, d.yFrac * h)
+    bgDriftCtx.scale(d.scale, d.scale)
+    stampFlat(bgDriftCtx, () => COMPONENTS[d.type](bgDriftCtx, ''), CANVAS_BG)
+    bgDriftCtx.restore()
   })
 
-  titleBgCtx.globalAlpha = 1
+  bgDriftCtx.globalAlpha = 1
 }
 
-resizeTitleBg()
-window.addEventListener('resize', resizeTitleBg)
+resizeBgDrift()
+window.addEventListener('resize', resizeBgDrift)
 
 // stops rescheduling itself once dismissed - no sense paying for a second
-// mascot render (or the drifting backdrop) once the player is in the actual
-// game
+// mascot render once the player is in the actual game (the drifting
+// backdrop keeps going regardless - see loop() below)
 function titleLoop(now: number): void {
   if (!titleVisible) return
-
-  drawTitleBg(now)
 
   const rect = titleCanvas.getBoundingClientRect()
   const lookX = pointerScreenX - (rect.left + rect.width / 2)

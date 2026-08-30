@@ -387,18 +387,20 @@ body {
   }
 }
 
-/* out of #title's own flex flow (like the toast/mascot elsewhere) so it
-   can't add layout height - just a full-viewport backdrop the drifting
-   pieces (drawTitleBg in index.ts) render into, sitting behind every
-   normal-flow child since it's first in the markup and #title's other
-   children paint after it at the same default stacking level */
-#titleBg {
-  position: absolute;
+/* a body-level sibling of #app, not scoped to the title screen - the
+   drifting pieces (drawBgDrift in index.ts) keep running once Start is
+   clicked, per direct feedback that they should continue on the main play
+   screen too. Fixed to the viewport with a negative z-index so it always
+   sits behind #app (a positioned element itself, via its own position:
+   relative) regardless of DOM order or #app's own stacking context. */
+#bgDrift {
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
-  /* purely decorative - a full-viewport layer would otherwise sit on top
-     of (and intercept clicks meant for) #startBtn */
+  z-index: -1;
+  /* purely decorative - would otherwise sit on top of (and intercept
+     clicks meant for) everything else once above other content */
   pointer-events: none;
 }
 

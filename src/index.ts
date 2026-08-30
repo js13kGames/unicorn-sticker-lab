@@ -1263,30 +1263,28 @@ const TITLE_FLOATERS: { type: ComponentType; x: number; y: number; scale: number
 
 const TITLE_MASCOT_SCALE = 1.8
 
-// every component drifting slowly across the full page backdrop (#bgDrift,
-// a body-level canvas, not scoped to #title - keeps running on the main
-// play screen too, via the main loop() below, not just while the title
-// screen is up). Flat monochrome (stampFlat, CANVAS_BG at low alpha) rather
-// than each piece's real color: meant to read as a subtle textured
-// watermark, not compete with the foreground for attention.
+// every component tiled across the full page backdrop (#bgDrift, a
+// body-level canvas, not scoped to #title - keeps running on the main play
+// screen too, via the main loop() below, not just while the title screen
+// is up). Flat monochrome (stampFlat, CANVAS_BG at low alpha) rather than
+// each piece's real color: meant to read as a subtle textured watermark,
+// not compete with the foreground for attention.
+//
+// A fixed, deterministic scrolling grid rather than independently
+// randomized particles (tried first - see git history) - randomized
+// per-item position/speed/scale never quite read as intentional no matter
+// how it was tuned, and a repeating tile that scrolls as one piece looks
+// deliberate by construction, the same way a wallpaper or a parallax
+// background layer does. One type per grid cell, cycling through
+// TRAY_ORDER along the diagonal (row+col) so no two adjacent cells (in
+// either direction) repeat the same piece; alternating rows offset
+// horizontally by half a tile (brick-laid, not a rigid checkerboard) and
+// alternating cells get one of two fixed sizes - variety from the pattern
+// itself, not from randomness.
 const BG_DRIFT_ALPHA = 0.1
-// two passes of every type (16 rows, not 8) for a denser field
-const BG_DRIFT_TYPES: ComponentType[] = [...TRAY_ORDER, ...TRAY_ORDER]
-// yFrac and phase were both originally derived from the same index `i` -
-// since both increased together, every drifter's vertical position and
-// horizontal starting offset moved in lockstep, reading as one visible
-// diagonal line sweeping the screen rather than a scattered field.
-// Randomizing each independently (fixed once here at module load, not
-// re-rolled per frame) decorrelates them; also asked for directly: bigger
-// (0.9-2.0 scale, up from 0.6-1.05) and more varied speeds (8-24, up from
-// 3 fixed values) than before.
-const BG_DRIFTERS = BG_DRIFT_TYPES.map(type => ({
-  type,
-  yFrac: Math.random(),
-  speed: 8 + Math.random() * 16,
-  scale: 0.9 + Math.random() * 1.1,
-  phase: Math.random(),
-}))
+const BG_TILE = 150
+const BG_SCROLL_SPEED = 18 // px/sec - the whole grid scrolls as one layer
+const BG_SCALES = [1.1, 1.6]
 
 function resizeBgDrift(): void {
   bgDriftCanvas.width = window.innerWidth
@@ -1312,17 +1310,29 @@ function drawBgDrift(now: number): void {
 
   bgDriftCtx.globalAlpha = BG_DRIFT_ALPHA
 
-  BG_DRIFTERS.forEach((d) => {
-    const margin = 70 * d.scale
-    const span = w + margin * 2
-    const x = (((now / 1000) * d.speed + d.phase * span) % span) - margin
+  // wraps every BG_TILE px, so redrawing from one column early to one
+  // column past the right edge is always enough to cover the full width
+  // seamlessly, however wide the viewport is
+  const scrollX = ((now / 1000) * BG_SCROLL_SPEED) % BG_TILE
+  const cols = Math.ceil(w / BG_TILE) + 2
+  const rows = Math.ceil(h / BG_TILE) + 1
 
-    bgDriftCtx.save()
-    bgDriftCtx.translate(x, d.yFrac * h)
-    bgDriftCtx.scale(d.scale, d.scale)
-    stampFlat(bgDriftCtx, () => COMPONENTS[d.type](bgDriftCtx, ''), CANVAS_BG)
-    bgDriftCtx.restore()
-  })
+  for (let row = 0; row < rows; row += 1) {
+    const rowOffset = (row % 2) * (BG_TILE / 2)
+
+    for (let col = -1; col < cols; col += 1) {
+      const type = TRAY_ORDER[(row + col + TRAY_ORDER.length) % TRAY_ORDER.length]
+      const scale = BG_SCALES[(row + col) % BG_SCALES.length]
+      const x = col * BG_TILE + rowOffset - scrollX
+      const y = row * BG_TILE
+
+      bgDriftCtx.save()
+      bgDriftCtx.translate(x, y)
+      bgDriftCtx.scale(scale, scale)
+      stampFlat(bgDriftCtx, () => COMPONENTS[type](bgDriftCtx, ''), CANVAS_BG)
+      bgDriftCtx.restore()
+    }
+  }
 
   bgDriftCtx.globalAlpha = 1
 }

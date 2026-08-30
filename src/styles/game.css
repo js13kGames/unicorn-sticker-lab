@@ -359,8 +359,8 @@ button:not(:disabled):active {
 
 .tray-btn canvas {
   display: block;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
 }
 
 #colors {
@@ -415,9 +415,14 @@ button:not(:disabled):active {
   outline-offset: 2px;
 }
 
+/* 9 buttons (44px each incl. border/padding) at the old 6px gap needed
+   444px, wrapping the googly-eyes piece alone onto its own second row -
+   shrinking icons to 32px (40px/button) and the gap to 5px brings that
+   down to exactly 400px, so all 9 fit in the one row TRAY_ORDER already
+   puts them in instead of leaving one orphaned below */
 #tray {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
   max-width: 400px;
   justify-content: center;

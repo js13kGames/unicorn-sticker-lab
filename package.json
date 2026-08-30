@@ -8,7 +8,7 @@
     "test": "jest --color",
     "prod": "pnpm run build-prod && pnpm run eslint && pnpm run preview-prod",
     "prod:skip-lint": "pnpm run build-prod && pnpm run preview-prod",
-    "pack": "cd build && bestzip build.zip *",
+    "pack": "cd build && bestzip --level 9 build.zip *",
     "size": "node ./check-size.js",
     "eslint": "eslint src/**/*.ts",
     "build-prod": "rm -rf build/* && node ./esbuild-prod.js && npm run pack && npm run size",

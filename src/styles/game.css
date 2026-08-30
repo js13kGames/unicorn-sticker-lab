@@ -144,13 +144,22 @@ body {
    over the edge) rather than floating entirely above it - needing that
    much less headroom is what keeps it from getting clipped by the
    viewport on shorter screens. */
+/* capped at the canvas's own rendered size (never just a flat 96px) so a
+   canvas shrunk small on a short viewport doesn't leave the mascot the
+   same fixed size regardless - at its worst (mascot content == canvasSize)
+   that puts the mascot's own bottom edge (top:-20px + its 6px border +
+   canvasSize) 14px above the canvas's own bottom, always inside #stage's
+   box no matter how far canvasSize shrinks, so it can never reach into
+   the print row below it the way a flat 96px did on the shortest
+   viewports tested (it was covering the canvas almost entirely there,
+   not just "peeking" over its top edge as intended) */
 #mascot {
   position: absolute;
   top: -20px;
   left: 50%;
   transform: translateX(-50%);
-  width: 96px;
-  height: 96px;
+  width: min(96px, $canvasSize);
+  height: min(96px, $canvasSize);
   background: $panel;
   border: 3px solid $ink;
   border-radius: 16px;

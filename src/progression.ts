@@ -11,11 +11,23 @@ export interface Tier {
 // GDD's own tier lists. Rather than invent new procedural art to fill out
 // tiers 2-5 (a real content addition, deferred - see the progress doc),
 // this reuses exactly what already exists: Tier 1 is the GDD's own starter
-// set, Tier 2 is the rest, unlocked once the player has proven they
-// understand discovery by finding a few Tier-1-only recipes.
+// set, the rest trickle in one piece at a time rather than all 3 at once.
+//
+// Unlocking sun/moon/balloon together at a single threshold (the original
+// shape here) meant one bumper reward early on, then nothing at all for
+// the remaining two-thirds of the collection - every recipe past that
+// point was already reachable, so there was no unlock left to build
+// toward. Spacing them out (plus RECIPE_SIZE_TIERS below) turns 2 unlock
+// moments into a steady handful, without adding a single new asset: same
+// 8 components, same 16 recipes, just staggered. Each threshold still
+// leaves a comfortable pool of not-yet-found recipes buildable from the
+// pieces already unlocked (see the recipe-count math in RECIPE_SIZE_TIERS'
+// own comment below), so nobody hits an unlock wall before they're ready.
 export const TIERS: Tier[] = [
   { types: ['unicorn', 'rainbow', 'star', 'cloud', 'heart'], unlockAt: 0 },
-  { types: ['sun', 'moon', 'balloon'], unlockAt: 3 },
+  { types: ['sun'], unlockAt: 2 },
+  { types: ['moon'], unlockAt: 4 },
+  { types: ['balloon'], unlockAt: 6 },
 ]
 
 export function unlockedTypes(discoveryCount: number): Set<ComponentType> {
@@ -37,15 +49,18 @@ export function nextTier(discoveryCount: number): Tier | undefined {
 export interface RecipeSizeTier { size: number; unlockAt: number }
 
 // a prior session's deferred idea (progress doc): start with 2-ingredient
-// recipes only, unlock bigger ones as progression advances. 6 was picked as
-// the 3-ingredient threshold specifically so it lands after component
-// Tier 2 (unlockAt: 3 above) - by 6 discoveries a player has already found
-// several 2-ingredient recipes with the full 8-piece tray available, so
-// they've had a real chance to explore pairs (including the 3 Tier-2-only
-// pieces) before a third slot is worth introducing.
+// recipes only, unlock bigger ones as progression advances. 9 lands after
+// every component tier above (the last, balloon, unlocks at 6) - by then
+// all 8 pieces are available and every 2-ingredient recipe (13 of them) is
+// buildable, so a third slot has real pairs to build on top of rather than
+// showing up before the tray's even full. The buildable-but-undiscovered
+// pool at each step: 6 recipes from the Tier-1 starter set alone, growing
+// to 8/11/13 as sun/moon/balloon each land - comfortably ahead of the
+// discovery counts (2/4/6) needed to cross those thresholds, so nobody
+// runs out of new things to try between one unlock and the next.
 export const RECIPE_SIZE_TIERS: RecipeSizeTier[] = [
   { size: 2, unlockAt: 0 },
-  { size: 3, unlockAt: 6 },
+  { size: 3, unlockAt: 9 },
 ]
 
 // the biggest recipe size currently matchable - findMatch uses this to

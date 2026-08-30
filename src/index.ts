@@ -972,7 +972,17 @@ function addSticker(type: ComponentType): void {
   mascotExcited()
 }
 
-TRAY_ORDER.forEach((type) => {
+// Each component's own art has a different vertical center of mass (the
+// balloon's string trails far below its knot, the heart's lobes outweigh
+// its point, sun/star are close to self-centered already) - translating
+// every icon by the same fixed origin left them visibly unaligned as a
+// row. Measured each one's actual drawn pixel bounds and nudged just the
+// tray icon's origin per type so all 8 land on the same visual center -
+// index-aligned with TRAY_ORDER, not a Record, since it's only ever read
+// by position here.
+const TRAY_ICON_NUDGE_Y = [1.5, 0, -1, 1.5, -2.5, 0.5, 0.5, -3]
+
+TRAY_ORDER.forEach((type, i) => {
   const btn = document.createElement('button')
   const icon = document.createElement('canvas')
 
@@ -984,7 +994,7 @@ TRAY_ORDER.forEach((type) => {
 
   const iconCtx = icon.getContext('2d') as CanvasRenderingContext2D
 
-  iconCtx.translate(24, 26)
+  iconCtx.translate(24, 26 + TRAY_ICON_NUDGE_Y[i])
   drawOutlined(
     iconCtx,
     () => {

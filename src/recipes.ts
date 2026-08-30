@@ -84,13 +84,13 @@ export const RECIPES: Recipe[] = [
     id: 'wishing-star',
     types: ['heart', 'star'],
     name: 'Wishing Star',
-    hint: 'Make a wish on something twinkling.',
+    hint: 'Make a wish on something twinkling - straight from the heart.',
   },
   {
     id: 'double-rainbow',
     types: ['rainbow', 'sun'],
     name: 'Double Rainbow',
-    hint: 'What appears when the sun meets the rain?',
+    hint: 'Shine some sun on your rainbow for double the magic.',
   },
   {
     id: 'ghost-unicorn',
@@ -104,7 +104,7 @@ export const RECIPES: Recipe[] = [
     types: ['rainbow', 'star'],
     effects: ['sparkle'],
     name: 'Shooting Rainbow',
-    hint: 'Add a little sparkle - watch it shoot across the sky.',
+    hint: 'A rainbow with a little sparkle, streaking by like a star.',
   },
   {
     id: 'peekaboo-moon',
@@ -122,19 +122,19 @@ export const RECIPES: Recipe[] = [
     id: 'sunshower',
     types: ['sun', 'cloud', 'rainbow'],
     name: 'Sunshower',
-    hint: "Sun's out and it's raining - what does that make?",
+    hint: 'Sun, a passing cloud, and the rainbow it leaves behind.',
   },
   {
     id: 'cosmic-unicorn',
     types: ['unicorn', 'rainbow', 'star'],
     name: 'Cosmic Unicorn',
-    hint: 'The ultimate magical creature - spare no ingredient.',
+    hint: 'A unicorn under a rainbow, reaching for a star.',
   },
   {
     id: 'birthday-wish',
     types: ['heart', 'star', 'balloon'],
     name: 'Birthday Wish',
-    hint: "A wish, a treat, and something sky-high - what's the occasion?",
+    hint: 'A heart full of love, a wish on a star, and balloons sky-high.',
   },
 ]
 

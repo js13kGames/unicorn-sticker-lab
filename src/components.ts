@@ -233,27 +233,26 @@ const drawBalloon: Draw = (ctx, color) => {
 }
 
 // The 100%-completion bonus piece (see TIERS in progression.ts) - a joke,
-// not a themed sticker, since finishing every recipe deserves a laugh.
-// Both eyes share one look direction (ex/ey, already clamped to how far a
-// pupil can stray from dead-center) rather than each tracking separately -
-// a real googly-eye toy's pupils roll together too.
-const EYE_PAIR_GAP = 20
-const GOOGLY_SCLERA_R = 16
-const GOOGLY_PUPIL_R = 7
+// not a themed sticker, since finishing every recipe deserves a laugh. A
+// single eye, not a fixed pair - a pair can't be pulled apart, which
+// would rule out exactly the kind of free-form use a bonus joke piece
+// should invite (three eyes on a monster, one stuck on an existing
+// sticker's face like the mascot's own single eye, two placed
+// independently if a pair is still what you want).
+const GOOGLY_SCLERA_R = 18
+const GOOGLY_PUPIL_R = 8
 
-function drawEyePair(ctx: CanvasRenderingContext2D, ex: number, ey: number): void {
-  [-EYE_PAIR_GAP, EYE_PAIR_GAP].forEach((cx) => {
-    blob(ctx, '#ffffff', () => circlePath(ctx, cx, 0, GOOGLY_SCLERA_R))
-    dot(ctx, cx + ex, ey, GOOGLY_PUPIL_R)
-  })
+function drawEye(ctx: CanvasRenderingContext2D, ex: number, ey: number): void {
+  blob(ctx, '#ffffff', () => circlePath(ctx, 0, 0, GOOGLY_SCLERA_R))
+  dot(ctx, ex, ey, GOOGLY_PUPIL_R)
 }
 
 // COMPONENTS' own entry - used for the tray icon, Collection/Album
 // thumbnails, and hit-testing, none of which have a pointer position to
 // track. A fixed, slightly cockeyed look for a bit of default character
-// rather than dead-center pupils, which read as inert/broken rather than
-// "not tracking yet."
-const drawGooglyEyes: Draw = ctx => drawEyePair(ctx, 3, 4)
+// rather than a dead-center pupil, which reads as inert/broken rather
+// than "not tracking yet."
+const drawGooglyEyes: Draw = ctx => drawEye(ctx, 3, 4)
 
 // the live version - drawn instead of COMPONENTS.googlyEyes for a placed
 // sticker on the main canvas (see placeRaw in index.ts), so it actually
@@ -266,7 +265,7 @@ export function drawGooglyEyesTracking(ctx: CanvasRenderingContext2D, lookX: num
   const mag = Math.sqrt(lookX * lookX + lookY * lookY)
   const scale = mag > maxOffset ? maxOffset / mag : 1
 
-  drawEyePair(ctx, lookX * scale, lookY * scale)
+  drawEye(ctx, lookX * scale, lookY * scale)
 }
 
 // Gives a shared, uniform-width border around the combined silhouette of

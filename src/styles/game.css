@@ -362,15 +362,17 @@ body {
   display: none;
 }
 
-/* the very first thing a player sees, not another in-game modal - a solid
-   background rather than the translucent dimmer #collection/#album/#confirm
-   share (tuned for glimpsing the board underneath), so a returning player's
-   already-restored canvas doesn't show through and compete with the title
-   card */
+/* the very first thing a player sees, not another in-game modal -
+   transparent (overriding the shared rule above's translucent dimmer,
+   which would otherwise let a returning player's already-restored canvas
+   show through and compete with the title card) rather than its own solid
+   fill: #bgDrift now provides an opaque backdrop of its own while the
+   title is up (see its .front rule below and drawBgDrift in index.ts), so
+   a second, separate opaque layer here would just hide it again. */
 #title {
   flex-direction: column;
   gap: 8px;
-  background: $bg;
+  background: transparent;
   text-align: center;
   animation: titleIn 0.4s ease;
 }
@@ -402,6 +404,16 @@ body {
   /* purely decorative - would otherwise sit on top of (and intercept
      clicks meant for) everything else once above other content */
   pointer-events: none;
+}
+
+/* while the title screen is up, promoted above #app's own normal content
+   (which paints at the default z-index:auto level - see .front for why
+   -1 alone isn't enough there) but still below #title's own z-index:10,
+   so it reads as sitting behind the title card specifically, not behind
+   the real game board it's now also responsible for hiding (see
+   drawBgDrift's own opaque fill, done only in this mode) */
+#bgDrift.front {
+  z-index: 5;
 }
 
 #titleCanvas {

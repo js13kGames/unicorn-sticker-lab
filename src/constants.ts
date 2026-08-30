@@ -18,6 +18,13 @@ export const SHARED_OUTLINE_WIDTH = 8
 export const PRINTED_OUTLINE_WIDTH = 13
 export const CANVAS_BG = '#9b7fe8'
 
+// matches vars.js's own $bg - duplicated by hand, same as CANVAS_BG/
+// canvasBg above, since CSS vars and TS runtime constants are separate
+// build-time systems with no shared source here. drawBgDrift (index.ts)
+// paints this as an opaque fill behind the title screen's drifting pieces,
+// standing in for #title's own CSS background (removed - see game.css)
+export const PAGE_BG = '#efe3ff'
+
 // Drawn with a dark halo underneath (see render()) so it stays visible
 // regardless of what color happens to be under it.
 export const SELECT_COLOR = '#ffd93d'

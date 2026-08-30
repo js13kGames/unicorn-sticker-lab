@@ -21,6 +21,7 @@ import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   CANVAS_BG,
+  PAGE_BG,
   PALETTE,
   DEFAULT_COLOR,
   NATURAL_COLOR,
@@ -1175,8 +1176,14 @@ resetBtn.addEventListener('click', handleResetCollection)
 // dedicated title-screen effect
 let titleVisible = true
 
+// starts promoted above #app's own content (see .front in game.css) since
+// the title screen is up from the very first frame - drawBgDrift also
+// starts painting its opaque fill immediately, for the same reason
+bgDriftCanvas.classList.add('front')
+
 startBtn.addEventListener('click', () => {
   titleVisible = false
+  bgDriftCanvas.classList.remove('front')
   titleEl.classList.add('hidden')
   playClick()
   discoveryBursts.push({ x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT / 2, at: performance.now() })
@@ -1263,17 +1270,22 @@ const TITLE_MASCOT_SCALE = 1.8
 // than each piece's real color: meant to read as a subtle textured
 // watermark, not compete with the foreground for attention.
 const BG_DRIFT_ALPHA = 0.1
-// two passes of every type (16 rows, not 8) for a denser field - `i` still
-// runs across the full doubled list, so the two instances of a given type
-// land in different rows with different phases rather than moving in
-// lockstep with each other
+// two passes of every type (16 rows, not 8) for a denser field
 const BG_DRIFT_TYPES: ComponentType[] = [...TRAY_ORDER, ...TRAY_ORDER]
-const BG_DRIFTERS = BG_DRIFT_TYPES.map((type, i) => ({
+// yFrac and phase were both originally derived from the same index `i` -
+// since both increased together, every drifter's vertical position and
+// horizontal starting offset moved in lockstep, reading as one visible
+// diagonal line sweeping the screen rather than a scattered field.
+// Randomizing each independently (fixed once here at module load, not
+// re-rolled per frame) decorrelates them; also asked for directly: bigger
+// (0.9-2.0 scale, up from 0.6-1.05) and more varied speeds (8-24, up from
+// 3 fixed values) than before.
+const BG_DRIFTERS = BG_DRIFT_TYPES.map(type => ({
   type,
-  yFrac: (i + 0.5) / BG_DRIFT_TYPES.length,
-  speed: 10 + (i % 3) * 5,
-  scale: 0.6 + (i % 4) * 0.15,
-  phase: (i / BG_DRIFT_TYPES.length) + 0.05,
+  yFrac: Math.random(),
+  speed: 8 + Math.random() * 16,
+  scale: 0.9 + Math.random() * 1.1,
+  phase: Math.random(),
 }))
 
 function resizeBgDrift(): void {
@@ -1286,6 +1298,18 @@ function drawBgDrift(now: number): void {
   const h = bgDriftCanvas.height
 
   bgDriftCtx.clearRect(0, 0, w, h)
+
+  // #title no longer carries its own opaque CSS background (see
+  // game.css) - while it's up, this canvas paints one directly instead,
+  // in the same draw pass as the drifters themselves, so one element does
+  // both jobs (hiding a returning player's real canvas underneath, and
+  // the decorative backdrop) rather than two separate mechanisms that
+  // could drift out of sync
+  if (titleVisible) {
+    bgDriftCtx.fillStyle = PAGE_BG
+    bgDriftCtx.fillRect(0, 0, w, h)
+  }
+
   bgDriftCtx.globalAlpha = BG_DRIFT_ALPHA
 
   BG_DRIFTERS.forEach((d) => {

@@ -179,6 +179,15 @@ function printFlourish(p: Placed, now: number): number {
 
 const SPAWN_FLOURISH_MS = 320
 
+// how long the selection ring waits after a piece spawns before it's
+// allowed to show at all (see render()'s own use of this) - reuses
+// SPAWN_FLOURISH_MS itself rather than the shorter LANDING_BURST_MS, so
+// the ring doesn't appear while the piece is still mid-bounce, only once
+// it's fully settled into its resting scale
+const RING_APPEAR_DELAY_MS = SPAWN_FLOURISH_MS
+// once the wait above is over, how long the ring itself takes to pop in
+const RING_POP_MS = 220
+
 // a back-out ease: overshoots past 1 before settling there, giving a
 // spring-like bounce - starts at 0 (t=0) and ends exactly at 1 (t=1), per
 // https://easings.net/#easeOutBack. Reused for the landing scale multiplier
@@ -754,11 +763,31 @@ function render(now: number): void {
   // the thicker shared outline above). Printed stickers also aren't being
   // carefully arranged piece-by-piece any more, so the "click here to keep
   // editing" affordance the ring exists for doesn't apply to them
-  if (sel && sel.groupId === null) {
+  // null spawnedAt (a duplicated piece - see the toolbar 'dup' handler)
+  // has no landing burst to wait out, so its ring is free to pop in right
+  // away instead of waiting on a delay that'll never end
+  const ringAge = sel && sel.spawnedAt !== null ?
+    now - sel.spawnedAt - RING_APPEAR_DELAY_MS :
+    Infinity
+
+  if (sel && sel.groupId === null && ringAge >= 0) {
+    // the same overshoot-then-settle bounce spawnFlourish gives a landing
+    // piece, reused here so the ring's own appearance reads as one more
+    // little "pop" instead of a flat on/off switch, plus a slow continuous
+    // breathe (same sine-pulse idea as effects.ts's drawGlow) so it stays
+    // lively for as long as the piece stays selected, not just on arrival
+    const pop = ringAge < RING_POP_MS ? Math.max(0, easeOutBack(ringAge / RING_POP_MS)) : 1
+    const breathe = 1 + Math.sin(now / 450) * 0.045
+    const radius = HIT_RADIUS * sel.scale * pop * breathe
+
     ctx.save()
-    ctx.setLineDash([6, 5])
+    ctx.setLineDash([7, 6])
+    // dashes slowly marching around the ring - the friendliest, cheapest
+    // bit of extra motion available, rather than a fully static outline
+    ctx.lineDashOffset = -now / 45
+    ctx.lineCap = 'round'
     ctx.beginPath()
-    ctx.arc(sel.x, sel.y, HIT_RADIUS * sel.scale, 0, Math.PI * 2)
+    ctx.arc(sel.x, sel.y, radius, 0, Math.PI * 2)
 
     // dark halo first, then the bright dashes on top - stays visible
     // against light or dark backgrounds instead of just one of them
@@ -986,10 +1015,12 @@ function addSticker(type: ComponentType): void {
 
   nextId += 1
   stickers.push(p)
-  // deliberately not auto-selected: the ring sat right on top of the
-  // freshly-placed piece and covered the landing burst it's meant to be
-  // celebrating. Still grabbable/draggable immediately either way -
-  // pointerdown's own hit-testing doesn't depend on prior selection.
+  // auto-selected on landing - so a fresh piece is immediately ready to
+  // drag/recolor/rotate without an extra click to select it first. The
+  // ring itself stays hidden for a beat (see RING_APPEAR_DELAY_MS in
+  // render()) so it doesn't sit right on top of the piece and cover the
+  // landing burst it's meant to be celebrating.
+  selectedId = p.id
   landingBursts.push({
     x, y, color: NATURAL_COLOR[type], at: now,
   })

@@ -83,6 +83,11 @@ const muteBtn = document.getElementById('muteBtn') as HTMLButtonElement
 const albumEl = document.getElementById('album') as HTMLDivElement
 const albumCloseBtn = document.getElementById('albumClose') as HTMLButtonElement
 const albumGridEl = document.getElementById('albumGrid') as HTMLDivElement
+const albumDetailEl = document.getElementById('albumDetail') as HTMLDivElement
+const albumDetailCanvas = document.getElementById('albumDetailCanvas') as HTMLCanvasElement
+const albumDetailNameEl = document.getElementById('albumDetailName') as HTMLSpanElement
+const albumExportBtn = document.getElementById('albumExport') as HTMLButtonElement
+const albumDeleteBtn = document.getElementById('albumDelete') as HTMLButtonElement
 const confirmEl = document.getElementById('confirm') as HTMLDivElement
 const confirmTextEl = document.getElementById('confirmText') as HTMLParagraphElement
 const confirmYesBtn = document.getElementById('confirmYes') as HTMLButtonElement
@@ -339,7 +344,7 @@ function updateDiscoveryCount(): void {
 
 const ALBUM_THUMB_SIZE = 64
 
-// every print, discovery or not (GDD SS14's "Failure" outcome is still a
+// every print, discovery or not (GDD §14's "Failure" outcome is still a
 // real sticker) - re-rendered here from `album` rather than kept as a
 // live DOM list, same "recompute on open" approach as Collection. Newest
 // first, so the thing you just printed is the first thing you see.
@@ -370,8 +375,39 @@ function renderAlbumGrid(): void {
     label.textContent = recipe ? recipe.name : 'Custom'
     item.appendChild(thumb)
     item.appendChild(label)
+    item.addEventListener('click', () => showAlbumDetail(snap))
     albumGridEl.appendChild(item)
   })
+}
+
+// rendered well above its own on-screen display size (see #albumDetail
+// canvas's CSS) so Save Image below exports something sharper than the
+// tiny grid thumbnails - same buffer this canvas is always shown at,
+// export and display aren't two separate renders
+const ALBUM_DETAIL_SIZE = 480
+
+// whichever snapshot the detail view is currently showing, if any - reset
+// to null whenever the view isn't up so Export/Delete can't act on a
+// stale one left over from a previous look
+let albumDetailSnap: Snapshot | null = null
+
+function showAlbumDetail(snap: Snapshot): void {
+  albumDetailSnap = snap
+
+  const recipe = snap.recipeId === null ? null : RECIPES.find(r => r.id === snap.recipeId)
+
+  albumDetailNameEl.textContent = recipe ? recipe.name : 'Custom'
+  albumDetailCanvas.width = ALBUM_DETAIL_SIZE
+  albumDetailCanvas.height = ALBUM_DETAIL_SIZE
+  renderSnapshot(albumDetailCanvas.getContext('2d') as CanvasRenderingContext2D, snap.pieces, ALBUM_DETAIL_SIZE)
+  albumGridEl.classList.add('hidden')
+  albumDetailEl.classList.remove('hidden')
+}
+
+function showAlbumGrid(): void {
+  albumDetailSnap = null
+  albumDetailEl.classList.add('hidden')
+  albumGridEl.classList.remove('hidden')
 }
 
 // GDD SS18's "request", kept proactive by construction - it's always on
@@ -1313,11 +1349,20 @@ collectionEl.addEventListener('click', (e) => {
 albumBtn.addEventListener('click', () => {
   playClick()
   renderAlbumGrid()
+  showAlbumGrid()
   albumEl.classList.remove('hidden')
 })
 
+// one step back to the grid if the detail view is open, otherwise closes
+// the whole modal - so "X" always means "go back" rather than losing your
+// place in the grid the moment you'd looked at anything
 albumCloseBtn.addEventListener('click', () => {
   playClick()
+  if (!albumDetailEl.classList.contains('hidden')) {
+    showAlbumGrid()
+
+    return
+  }
   albumEl.classList.add('hidden')
 })
 
@@ -1325,6 +1370,34 @@ albumEl.addEventListener('click', (e) => {
   if (e.target !== albumEl) return
   playClick()
   albumEl.classList.add('hidden')
+})
+
+// canvas.toDataURL rather than toBlob+URL.createObjectURL - shorter, and
+// this only ever runs from a real click, so there's no async gap for a
+// popup blocker (the usual reason to prefer the Blob route) to trip on
+albumExportBtn.addEventListener('click', () => {
+  const snap = albumDetailSnap
+
+  if (!snap) return
+  playClick()
+
+  const recipe = snap.recipeId === null ? null : RECIPES.find(r => r.id === snap.recipeId)
+  const name = (recipe?.name ?? 'sticker').toLowerCase().replace(/\s+/g, '-')
+  const a = document.createElement('a')
+
+  a.href = albumDetailCanvas.toDataURL('image/png')
+  a.download = `${name}.png`
+  a.click()
+})
+
+albumDeleteBtn.addEventListener('click', async () => {
+  if (!albumDetailSnap) return
+  if (!(await showConfirm('Delete this sticker from your album?'))) return
+
+  album = album.filter(s => s !== albumDetailSnap)
+  saveGame(discoveredIds, stickers, album, recipeShots)
+  renderAlbumGrid()
+  showAlbumGrid()
 })
 
 function resolveConfirm(ok: boolean): void {

@@ -52,6 +52,14 @@ export const htmlTemplate = `
                 <button id="albumClose" title="Close">&#10005;</button>
                 <h1>Album</h1>
                 <div id="albumGrid"></div>
+                <div id="albumDetail" class="hidden">
+                    <canvas id="albumDetailCanvas"></canvas>
+                    <span id="albumDetailName"></span>
+                    <div id="albumDetailButtons">
+                        <button id="albumExport">Save Image</button>
+                        <button id="albumDelete">Delete</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="confirm" class="hidden">

@@ -637,14 +637,24 @@ async function handlePrint(): Promise<void> {
   const clusters = clusterByOverlap(stickers.filter(s => s.groupId === null))
   const sweptIds = new Set<number>()
 
+  // a cluster matching an already-discovered recipe offers to replace its
+  // Collection representative shot - purely the player's own taste call,
+  // never forced. That offer used to be awaited right here, inline, which
+  // meant its confirm() modal (a full-screen overlay) could either block
+  // a *different* cluster's new-discovery/unlock fanfare from firing at
+  // all until answered, or - if the new one happened to process first -
+  // pop up right on top of that fanfare and cut it short. Queuing the
+  // offer instead and asking about all of them only after every cluster's
+  // own immediate reaction (toasts/bursts/sounds) and the unlock checks
+  // below have already fired keeps this genuinely low-stakes question
+  // from ever interrupting the moment a print is actually exciting.
+  const replaceOffers: { matchId: string; matchName: string; snapshot: Placed[] }[] = []
+
   // one cluster's worth of the old forEach body, pulled out so the loop
-  // below can stay flat (a single await per iteration) instead of nesting
-  // an early-exit path per case - `continue`/for-of are both off the
-  // table under this project's eslint config, and a classic indexed loop
-  // still lets each cluster's confirm() (if any) resolve before the next
-  // cluster is processed, same sequencing the old synchronous
-  // window.confirm() gave for free.
-  async function processCluster(cluster: Placed[]): Promise<ClusterOutcome> {
+  // below can stay flat instead of nesting an early-exit path per case -
+  // `continue`/for-of are both off the table under this project's eslint
+  // config
+  function processCluster(cluster: Placed[]): ClusterOutcome {
     if (cluster.length === 1) {
       sweptIds.add(cluster[0].id)
 
@@ -679,11 +689,7 @@ async function handlePrint(): Promise<void> {
 
     if (discoveredIds.has(match.id)) {
       showToast(match.name)
-      // purely the player's own taste call, never forced - only offered
-      // when there's an existing shot that could actually be replaced
-      if (await showConfirm(`Use this as your picture for ${match.name}?`)) {
-        recipeShots[match.id] = snapshot
-      }
+      replaceOffers.push({ matchId: match.id, matchName: match.name, snapshot })
 
       return 'known'
     }
@@ -705,15 +711,14 @@ async function handlePrint(): Promise<void> {
   let anyKnown = false
   let anyCustom = false
 
-  for (let i = 0; i < clusters.length; i += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const outcome = await processCluster(clusters[i])
+  clusters.forEach((cluster) => {
+    const outcome = processCluster(cluster)
 
     if (outcome === 'swept') anySwept = true
     if (outcome === 'new') anyNew = true
     if (outcome === 'known') anyKnown = true
     if (outcome === 'custom') anyCustom = true
-  }
+  })
 
   // groups are formed in place above (mutating groupId/printedAt), so the
   // only structural change needed is dropping the swept singles - already-
@@ -763,8 +768,40 @@ async function handlePrint(): Promise<void> {
   // printing is the single biggest state change (new groups, swept
   // singles, sometimes a new discovery/unlock) - always worth a save on
   // its own, rather than only relying on the pagehide/visibilitychange save
-  // below to catch it whenever the tab eventually closes
+  // below to catch it whenever the tab eventually closes. Saved here,
+  // before the replace-offer confirms below, so a discovery/unlock this
+  // print produced is never lost even if the player never answers one.
   saveGame(discoveredIds, stickers, album, recipeShots)
+
+  // deferred from processCluster above - asked one at a time, only now
+  // that every cluster's own fanfare and the unlock checks above have
+  // already fired. If this print also discovered something new, the
+  // confirm dialog is itself a full-screen overlay that would otherwise
+  // cover that discovery's toast/confetti the instant it appears (they're
+  // all synchronous - deferring the *call* to processCluster's
+  // replaceOffers isn't enough on its own, since nothing here actually
+  // yields to the browser's own paint until this await). 4500ms rather
+  // than the unlock toast's own 2300ms: this print may *also* have
+  // crossed an unlock threshold, whose toast doesn't appear until that
+  // same 2300ms mark and stays up for 2200ms of its own - waiting only
+  // 2300ms here would just trade "covers the discovery toast" for
+  // "covers the unlock toast" instead. Not worth precisely tracking
+  // whether an unlock actually fired just to shave this wait down.
+  if (replaceOffers.length > 0) {
+    if (anyNew) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { window.setTimeout(resolve, 4500) })
+    }
+    for (let i = 0; i < replaceOffers.length; i += 1) {
+      const offer = replaceOffers[i]
+
+      // eslint-disable-next-line no-await-in-loop
+      if (await showConfirm(`Use this as your picture for ${offer.matchName}?`)) {
+        recipeShots[offer.matchId] = offer.snapshot
+      }
+    }
+    saveGame(discoveredIds, stickers, album, recipeShots)
+  }
 }
 
 // wipes the whole canvas at once (printed groups included) - unlike

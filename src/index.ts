@@ -65,6 +65,7 @@ const titleCtx = titleCanvas.getContext('2d') as CanvasRenderingContext2D
 const startBtn = document.getElementById('startBtn') as HTMLButtonElement
 
 const appEl = document.getElementById('app') as HTMLDivElement
+const stageEl = document.getElementById('stage') as HTMLDivElement
 const trayEl = document.getElementById('tray') as HTMLDivElement
 const colorsEl = document.getElementById('colors') as HTMLDivElement
 const effectsEl = document.getElementById('effects') as HTMLDivElement
@@ -443,24 +444,37 @@ function updateRequest(): void {
 // offset from #app's own edge can drift out from under the mascot. This
 // measures #mascot's actual rendered position and places #request
 // relative to that instead, which stays correct regardless of which
-// element ends up widest. Narrow viewports don't need any of this - the
-// CSS default is an ordinary centered row, so this just clears any
-// leftover inline position from a previous wide layout.
-function positionRequest(): void {
+// element ends up widest.
+//
+// Narrow viewports don't need any of that - #request is an ordinary
+// centered row there - but #toast's own base CSS position (a fixed
+// top:10px within #stage) turned out to land right on the mascot's own
+// face: the mascot peeks up to 20px above #stage's top edge and is up to
+// 96px tall, so anything fixed within roughly that range sits on top of
+// it. Bumping #toast below the mascot's actual rendered bottom edge
+// needs the same kind of measurement request's own wide-mode position
+// does, just against #stage instead of #app (toast's own containing
+// block - see its "always absolutely positioned" comment in game.css).
+function positionMascotRelatives(): void {
   // must agree with game.css's own (min-width: 640px) and (min-height: 480px)
-  // media query gating the same wide/sidebar layout - see its comment for why
-  if (!window.matchMedia('(min-width: 640px) and (min-height: 480px)').matches) {
+  // media query gating the wide/sidebar layout - see its comment for why
+  const wide = window.matchMedia('(min-width: 640px) and (min-height: 480px)').matches
+  const mascotRect = mascotCanvas.getBoundingClientRect()
+
+  if (wide) {
+    const appRect = appEl.getBoundingClientRect()
+
+    requestEl.style.left = `${mascotRect.left - appRect.left}px`
+    requestEl.style.top = `${mascotRect.bottom - appRect.top + 10}px`
+    toastEl.style.top = ''
+  } else {
     requestEl.style.left = ''
     requestEl.style.top = ''
 
-    return
+    const stageRect = stageEl.getBoundingClientRect()
+
+    toastEl.style.top = `${mascotRect.bottom - stageRect.top + 8}px`
   }
-
-  const mascotRect = mascotCanvas.getBoundingClientRect()
-  const appRect = appEl.getBoundingClientRect()
-
-  requestEl.style.left = `${mascotRect.left - appRect.left}px`
-  requestEl.style.top = `${mascotRect.bottom - appRect.top + 10}px`
 }
 
 // shared by refreshTray/refreshEffects (the tooltip text) and addSticker/
@@ -1537,8 +1551,8 @@ muteBtn.addEventListener('click', () => {
 updateDiscoveryCount()
 renderCollectionList()
 updateRequest()
-positionRequest()
-window.addEventListener('resize', positionRequest)
+positionMascotRelatives()
+window.addEventListener('resize', positionMascotRelatives)
 
 // stickers render continuously (not just on state changes) since effects
 // (sparkle/glow/hearts) animate on their own even when nothing else does.

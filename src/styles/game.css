@@ -20,6 +20,8 @@ body {
   justify-content: center;
   font-family: sans-serif;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* every button in the game presses down a little on tap and springs back
@@ -659,10 +661,10 @@ button:not(:disabled):active {
    no visible affordance that hovering would even show anything. Shown as
    its own always-visible piece of row content instead */
 .discovery-row .hint {
-  font-size: 11px;
-  font-style: italic;
+  font-size: 14px;
+  font-weight: bold;
   opacity: 0.65;
-  text-align: right;
+  text-align: left;
 }
 
 /* wraps a found row's thumbnail + name as one unit, so .discovery-row's
